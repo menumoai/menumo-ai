@@ -6,45 +6,27 @@ import { getFirestore } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 
 // ------------------------------------------------------
-//  IMPORTANT
-// Replace the firebaseConfig object below with the config
-// you got from Firebase Console -> Project Settings -> Web App
+// Load variables from .env.local via Vite's import.meta.env
 // ------------------------------------------------------
 const firebaseConfig = {
-
-    apiKey: "AIzaSyCe66Jbxm-XZ70Gy1TOm-35mCCHtuZdr_c",
-
-    authDomain: "menumo-ai.firebaseapp.com",
-
-    databaseURL: "https://menumo-ai-default-rtdb.firebaseio.com",
-
-    projectId: "menumo-ai",
-
-    storageBucket: "menumo-ai.firebasestorage.app",
-
-    messagingSenderId: "714494244092",
-
-    appId: "1:714494244092:web:499a2e3ce60abb5fc19379",
-
-    measurementId: "G-HK8L423NSN"
-
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID,
+    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID, // optional
+    databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,    // optional if you use RTDB
 };
 
 // ------------------------------------------------------
-// Initialize Firebase App
+// Initialize Firebase
 // ------------------------------------------------------
-
 const app = initializeApp(firebaseConfig);
 
 // ------------------------------------------------------
-// Export Firestore + Auth instances
+// Expose Firestore & Auth
 // ------------------------------------------------------
-
 export const db = getFirestore(app);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
-
-// (optional) for later usage:
-// import { onAuthStateChanged, signInWithEmailAndPassword } from "firebase/auth";
-// import { collection, doc, setDoc, getDoc } from "firebase/firestore";
-

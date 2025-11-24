@@ -1,15 +1,11 @@
 // src/pages/DevConsole.tsx
 import { useState } from "react";
-
-import { DEMO_ACCOUNT_ID as ACCOUNT_ID } from "../config";
+import { useAccount } from "../account/AccountContext";
 
 import { createBusinessAccount, getBusinessAccount } from "../services/accounts";
 import { createAccountUser, listAccountUsers } from "../services/users";
 import { createProduct, listProducts } from "../services/product";
-import {
-  createOrderWithLineItems,
-  listOrders,
-} from "../services/order";
+import { createOrderWithLineItems, listOrders } from "../services/order";
 import { createCustomer, listCustomers } from "../services/customer";
 
 import type { Product } from "../models/product";
@@ -18,272 +14,281 @@ import type { AccountUser } from "../models/user";
 import type { Customer } from "../models/customer";
 
 export function DevConsole() {
-  const [status, setStatus] = useState("idle");
-  const [products, setProducts] = useState<Product[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [users, setUsers] = useState<AccountUser[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
+    const [status, setStatus] = useState("idle");
+    const [products, setProducts] = useState<Product[]>([]);
+    const [orders, setOrders] = useState<Order[]>([]);
+    const [users, setUsers] = useState<AccountUser[]>([]);
+    const [customers, setCustomers] = useState<Customer[]>([]);
 
-  const OWNER_ID = "owner-1";
+    const { accountId, loading: accountLoading } = useAccount();
 
-  const handleSeedAccountAndOwner = async () => {
-    setStatus("Seeding account + owner...");
-
-    try {
-      await createBusinessAccount({
-        id: ACCOUNT_ID,
-        name: "Demo Taco Truck",
-        legalName: "Demo Taco Truck LLC",
-        email: "owner@demotacotruck.com",
-        phone: "555-1234",
-      });
-
-      await createAccountUser({
-        accountId: ACCOUNT_ID,
-        id: OWNER_ID,
-        email: "owner@demotacotruck.com",
-        firstName: "Alex",
-        lastName: "Owner",
-        phone: "555-1234",
-      });
-
-      const account = await getBusinessAccount(ACCOUNT_ID);
-      const accountUsers = await listAccountUsers(ACCOUNT_ID);
-
-      console.log("✅ Account:", account);
-      console.log("✅ Users:", accountUsers);
-
-      setUsers(accountUsers);
-      setStatus("Account + owner seeded successfully ✅");
-    } catch (err) {
-      console.error("❌ Error seeding account + owner:", err);
-      setStatus("Error seeding account + owner – see console");
+    if (accountLoading) {
+        return <p style={{ padding: "1.5rem" }}>Loading account...</p>;
     }
-  };
-
-  const handleSeedProducts = async () => {
-    setStatus("Seeding demo products...");
-
-    try {
-      await createProduct({
-        accountId: ACCOUNT_ID,
-        name: "Birria Taco",
-        description: "Slow-cooked beef birria with consommé",
-        category: "tacos",
-        price: 5.5,
-        cost: 2.0,
-        menuType: "food",
-        stockUnit: "each",
-        currentStock: 200,
-        prepTimeSeconds: 120,
-      });
-
-      await createProduct({
-        accountId: ACCOUNT_ID,
-        name: "Street Corn Elote",
-        description: "Grilled corn with cotija, mayo, lime, chili",
-        category: "sides",
-        price: 4.0,
-        cost: 1.2,
-        menuType: "food",
-        stockUnit: "each",
-        currentStock: 100,
-        prepTimeSeconds: 90,
-      });
-
-      const prods = await listProducts(ACCOUNT_ID);
-      console.log("✅ Products:", prods);
-      setProducts(prods);
-      setStatus("Products seeded successfully ✅");
-    } catch (err) {
-      console.error("❌ Error seeding products:", err);
-      setStatus("Error seeding products – see console");
+    if (!accountId) {
+        return <p style={{ padding: "1.5rem" }}>No account selected.</p>;
     }
-  };
 
-  const handleSeedCustomer = async () => {
-    setStatus("Seeding demo customer...");
+    const handleSeedAccountAndOwner = async () => {
+        setStatus("Seeding account + owner...");
 
-    try {
-      const customerId = await createCustomer({
-        accountId: ACCOUNT_ID,
-        name: "First Demo Customer",
-        phone: "+15555550123",
-        marketingOptIn: true,
-      });
+        try {
+            await createBusinessAccount({
+                id: accountId,
+                name: "Demo Taco Truck",
+                legalName: "Demo Taco Truck LLC",
+                email: "owner@demotacotruck.com",
+                phone: "555-1234",
+            });
 
-      const updatedCustomers = await listCustomers(ACCOUNT_ID);
-      console.log("✅ Customers:", updatedCustomers);
-      setCustomers(updatedCustomers);
-      setStatus(`Customer seeded successfully ✅ (id: ${customerId})`);
-    } catch (err) {
-      console.error("❌ Error seeding customer:", err);
-      setStatus("Error seeding customer – see console");
-    }
-  };
+            await createAccountUser({
+                accountId,
+                id: "owner-1",
+                email: "owner@demotacotruck.com",
+                firstName: "Alex",
+                lastName: "Owner",
+                phone: "555-1234",
+            });
 
-  const handleCreateDemoOrder = async () => {
-    setStatus("Creating demo order...");
+            const account = await getBusinessAccount(accountId);
+            const accountUsers = await listAccountUsers(accountId);
 
-    try {
-      const prods = products.length > 0 ? products : await listProducts(ACCOUNT_ID);
-      if (prods.length === 0) {
-        setStatus("No products found – seed products first");
-        return;
-      }
+            console.log("✅ Account:", account);
+            console.log("✅ Users:", accountUsers);
 
-      const product = prods[0];
+            setUsers(accountUsers);
+            setStatus("Account + owner seeded successfully ✅");
+        } catch (err) {
+            console.error("❌ Error seeding account + owner:", err);
+            setStatus("Error seeding account + owner – see console");
+        }
+    };
 
-      const orderId = await createOrderWithLineItems({
-        accountId: ACCOUNT_ID,
-        items: [
-          {
-            productId: product.id,
-            quantity: 2,
-            unitPrice: product.price,
-          },
-        ],
-      });
+    const handleSeedProducts = async () => {
+        setStatus("Seeding demo products...");
 
-      console.log("✅ Created order with ID:", orderId);
+        try {
+            await createProduct({
+                accountId,
+                name: "Birria Taco",
+                description: "Slow-cooked beef birria with consommé",
+                category: "tacos",
+                price: 5.5,
+                cost: 2.0,
+                menuType: "food",
+                stockUnit: "each",
+                currentStock: 200,
+                prepTimeSeconds: 120,
+            });
 
-      const updatedOrders = await listOrders(ACCOUNT_ID);
-      setOrders(updatedOrders);
-      setStatus(`Order created successfully ✅ (id: ${orderId})`);
-    } catch (err) {
-      console.error("❌ Error creating order:", err);
-      setStatus("Error creating order – see console");
-    }
-  };
+            await createProduct({
+                accountId,
+                name: "Street Corn Elote",
+                description: "Grilled corn with cotija, mayo, lime, chili",
+                category: "sides",
+                price: 4.0,
+                cost: 1.2,
+                menuType: "food",
+                stockUnit: "each",
+                currentStock: 100,
+                prepTimeSeconds: 90,
+            });
 
-  const handleLoadProducts = async () => {
-    setStatus("Loading products...");
-    try {
-      const prods = await listProducts(ACCOUNT_ID);
-      setProducts(prods);
-      setStatus("Products loaded ✅");
-    } catch (err) {
-      console.error("❌ Error loading products:", err);
-      setStatus("Error loading products – see console");
-    }
-  };
+            const prods = await listProducts(accountId);
+            console.log("✅ Products:", prods);
+            setProducts(prods);
+            setStatus("Products seeded successfully ✅");
+        } catch (err) {
+            console.error("❌ Error seeding products:", err);
+            setStatus("Error seeding products – see console");
+        }
+    };
 
-  const handleLoadOrders = async () => {
-    setStatus("Loading orders...");
-    try {
-      const ords = await listOrders(ACCOUNT_ID);
-      setOrders(ords);
-      setStatus("Orders loaded ✅");
-    } catch (err) {
-      console.error("❌ Error loading orders:", err);
-      setStatus("Error loading orders – see console");
-    }
-  };
+    const handleSeedCustomer = async () => {
+        setStatus("Seeding demo customer...");
 
-  const handleLoadCustomers = async () => {
-    setStatus("Loading customers...");
-    try {
-      const custs = await listCustomers(ACCOUNT_ID);
-      setCustomers(custs);
-      setStatus("Customers loaded ✅");
-    } catch (err) {
-      console.error("❌ Error loading customers:", err);
-      setStatus("Error loading customers – see console");
-    }
-  };
+        try {
+            const customerId = await createCustomer({
+                accountId,
+                name: "First Demo Customer",
+                phone: "+15555550123",
+                marketingOptIn: true,
+            });
 
-  return (
-    <div style={{ padding: "1.5rem", maxWidth: 900, margin: "0 auto" }}>
-      <h1>Menumo AI – Dev Console</h1>
-      <p style={{ marginBottom: "1rem", color: "#555" }}>
-        Account: <code>{ACCOUNT_ID}</code>
-      </p>
+            const updatedCustomers = await listCustomers(accountId);
+            console.log("✅ Customers:", updatedCustomers);
+            setCustomers(updatedCustomers);
+            setStatus(`Customer seeded successfully ✅ (id: ${customerId})`);
+        } catch (err) {
+            console.error("❌ Error seeding customer:", err);
+            setStatus("Error seeding customer – see console");
+        }
+    };
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-          gap: "0.75rem",
-          marginBottom: "1.5rem",
-        }}
-      >
-        <button onClick={handleSeedAccountAndOwner}>Seed Account + Owner</button>
-        <button onClick={handleSeedProducts}>Seed Demo Products</button>
-        <button onClick={handleSeedCustomer}>Seed Demo Customer</button>
-        <button onClick={handleCreateDemoOrder}>Create Demo Order</button>
-        <button onClick={handleLoadProducts}>Load Products</button>
-        <button onClick={handleLoadCustomers}>Load Customers</button>
-        <button onClick={handleLoadOrders}>Load Orders</button>
-      </div>
+    const handleCreateDemoOrder = async () => {
+        setStatus("Creating demo order...");
 
-      <p>
-        <strong>Status:</strong> {status}
-      </p>
+        try {
+            const prods =
+                products.length > 0 ? products : await listProducts(accountId);
+            if (prods.length === 0) {
+                setStatus("No products found – seed products first");
+                return;
+            }
 
-      <hr style={{ margin: "1.5rem 0" }} />
+            const product = prods[0];
 
-      <section style={{ marginBottom: "1.5rem" }}>
-        <h2>Users ({users.length})</h2>
-        {users.length === 0 ? (
-          <p style={{ color: "#777" }}>No users loaded yet.</p>
-        ) : (
-          <ul>
-            {users.map((u) => (
-              <li key={u.id}>
-                {u.firstName} {u.lastName} — {u.email} ({u.role})
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+            const orderId = await createOrderWithLineItems({
+                accountId,
+                items: [
+                    {
+                        productId: product.id,
+                        quantity: 2,
+                        unitPrice: product.price,
+                    },
+                ],
+            });
 
-      <section style={{ marginBottom: "1.5rem" }}>
-        <h2>Customers ({customers.length})</h2>
-        {customers.length === 0 ? (
-          <p style={{ color: "#777" }}>No customers loaded yet.</p>
-        ) : (
-          <ul>
-            {customers.map((c) => (
-              <li key={c.id}>
-                {c.name ?? "Unnamed"} — {c.phone ?? "no phone"}{" "}
-                {c.marketingOptIn ? "(opted in)" : "(no marketing)"}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+            console.log("✅ Created order with ID:", orderId);
 
-      <section style={{ marginBottom: "1.5rem" }}>
-        <h2>Products ({products.length})</h2>
-        {products.length === 0 ? (
-          <p style={{ color: "#777" }}>No products loaded yet.</p>
-        ) : (
-          <ul>
-            {products.map((p) => (
-              <li key={p.id}>
-                <strong>{p.name}</strong> — ${p.price.toFixed(2)}{" "}
-                {p.isActive ? "" : "(inactive)"}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+            const updatedOrders = await listOrders(accountId);
+            setOrders(updatedOrders);
+            setStatus(`Order created successfully ✅ (id: ${orderId})`);
+        } catch (err) {
+            console.error("❌ Error creating order:", err);
+            setStatus("Error creating order – see console");
+        }
+    };
 
-      <section>
-        <h2>Orders ({orders.length})</h2>
-        {orders.length === 0 ? (
-          <p style={{ color: "#777" }}>No orders loaded yet.</p>
-        ) : (
-          <ul>
-            {orders.map((o) => (
-              <li key={o.id}>
-                <strong>{o.id}</strong> — status: {o.status}, total: $
-                {o.totalAmount.toFixed(2)} via {o.channel}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </div>
-  );
+    const handleLoadProducts = async () => {
+        setStatus("Loading products...");
+        try {
+            const prods = await listProducts(accountId);
+            setProducts(prods);
+            setStatus("Products loaded ✅");
+        } catch (err) {
+            console.error("❌ Error loading products:", err);
+            setStatus("Error loading products – see console");
+        }
+    };
+
+    const handleLoadOrders = async () => {
+        setStatus("Loading orders...");
+        try {
+            const ords = await listOrders(accountId);
+            setOrders(ords);
+            setStatus("Orders loaded ✅");
+        } catch (err) {
+            console.error("❌ Error loading orders:", err);
+            setStatus("Error loading orders – see console");
+        }
+    };
+
+    const handleLoadCustomers = async () => {
+        setStatus("Loading customers...");
+        try {
+            const custs = await listCustomers(accountId);
+            setCustomers(custs);
+            setStatus("Customers loaded ✅");
+        } catch (err) {
+            console.error("❌ Error loading customers:", err);
+            setStatus("Error loading customers – see console");
+        }
+    };
+
+    return (
+        <div style={{ padding: "1.5rem", maxWidth: 900, margin: "0 auto" }}>
+            <h1>Menumo AI – Dev Console</h1>
+            <p style={{ marginBottom: "1rem", color: "#555" }}>
+                Account: <code>{accountId}</code>
+            </p>
+
+            <div
+                style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                    gap: "0.75rem",
+                    marginBottom: "1.5rem",
+                }}
+            >
+                <button onClick={handleSeedAccountAndOwner}>Seed Account + Owner</button>
+                <button onClick={handleSeedProducts}>Seed Demo Products</button>
+                <button onClick={handleSeedCustomer}>Seed Demo Customer</button>
+                <button onClick={handleCreateDemoOrder}>Create Demo Order</button>
+                <button onClick={handleLoadProducts}>Load Products</button>
+                <button onClick={handleLoadCustomers}>Load Customers</button>
+                <button onClick={handleLoadOrders}>Load Orders</button>
+            </div>
+
+            <p>
+                <strong>Status:</strong> {status}
+            </p>
+
+            <hr style={{ margin: "1.5rem 0" }} />
+
+            <section style={{ marginBottom: "1.5rem" }}>
+                <h2>Users ({users.length})</h2>
+                {users.length === 0 ? (
+                    <p style={{ color: "#777" }}>No users loaded yet.</p>
+                ) : (
+                    <ul>
+                        {users.map((u) => (
+                            <li key={u.id}>
+                                {u.firstName} {u.lastName} — {u.email} ({u.role})
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </section>
+
+            <section style={{ marginBottom: "1.5rem" }}>
+                <h2>Customers ({customers.length})</h2>
+                {customers.length === 0 ? (
+                    <p style={{ color: "#777" }}>No customers loaded yet.</p>
+                ) : (
+                    <ul>
+                        {customers.map((c) => (
+                            <li key={c.id}>
+                                {c.name ?? "Unnamed"} — {c.phone ?? "no phone"}{" "}
+                                {c.marketingOptIn ? "(opted in)" : "(no marketing)"}
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </section>
+
+            <section style={{ marginBottom: "1.5rem" }}>
+                <h2>Products ({products.length})</h2>
+                {products.length === 0 ? (
+                    <p style={{ color: "#777" }}>No products loaded yet.</p>
+                ) : (
+                    <ul>
+                        {products.map((p) => (
+                            <li key={p.id}>
+                                <strong>{p.name}</strong> — ${p.price.toFixed(2)}{" "}
+                                {p.isActive ? "" : "(inactive)"}
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </section>
+
+            <section>
+                <h2>Orders ({orders.length})</h2>
+                {orders.length === 0 ? (
+                    <p style={{ color: "#777" }}>No orders loaded yet.</p>
+                ) : (
+                    <ul>
+                        {orders.map((o) => (
+                            <li key={o.id}>
+                                <strong>{o.id}</strong> — status: {o.status}, total: $
+                                {o.totalAmount.toFixed(2)} via {o.channel}
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </section>
+        </div>
+    );
 }
+

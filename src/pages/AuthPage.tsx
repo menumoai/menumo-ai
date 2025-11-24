@@ -26,19 +26,23 @@ export function AuthPage() {
         setLoading(true);
 
         try {
+
             const cred = await signInWithPopup(auth, googleProvider);
             const user = cred.user;
 
-            // For now: ensure demo account exists and user is added to it
+            const accountId = user.uid;
+
             await createBusinessAccount({
-                id: DEMO_ACCOUNT_ID,
-                name: "Demo Taco Truck",
+                id: accountId,
+                name: user.displayName
+                    ? `${user.displayName}'s Truck`
+                    : "Demo Taco Truck",
                 legalName: "Demo Taco Truck LLC",
                 email: user.email ?? undefined,
             });
 
             await createAccountUser({
-                accountId: DEMO_ACCOUNT_ID,
+                accountId,
                 id: user.uid,
                 email: user.email ?? "",
                 firstName: user.displayName ?? "Owner",
@@ -69,21 +73,20 @@ export function AuthPage() {
                     return;
                 }
 
-                // 1) Create Firebase auth user
                 const cred = await createUserWithEmailAndPassword(auth, email, password);
                 const user = cred.user;
 
-                // 2) Ensure demo account exists (idempotent)
+                const accountId = user.uid;
+
                 await createBusinessAccount({
-                    id: DEMO_ACCOUNT_ID,
-                    name: "Demo Taco Truck",
-                    legalName: "Demo Taco Truck LLC",
+                    id: accountId,
+                    name: `${firstName}'s Truck`,
+                    legalName: `${firstName} Demo LLC`,
                     email,
                 });
 
-                // 3) Create /accounts/demo-truck/users/{uid}
                 await createAccountUser({
-                    accountId: DEMO_ACCOUNT_ID,
+                    accountId,
                     id: user.uid,
                     email,
                     firstName,
@@ -92,7 +95,8 @@ export function AuthPage() {
 
                 setStatus("Signup successful ✅");
                 navigate("/menu");
-            } else {
+            }
+            else {
                 // LOGIN
                 await signInWithEmailAndPassword(auth, email, password);
                 setStatus("Login successful ✅");
