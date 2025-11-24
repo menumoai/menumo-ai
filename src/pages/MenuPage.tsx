@@ -1,142 +1,154 @@
 // src/pages/MenuPage.tsx
 import { FormEvent, useEffect, useState } from "react";
-import { DEMO_ACCOUNT_ID as ACCOUNT_ID } from "../config";
 import { createProduct, listProducts } from "../services/product";
 import type { Product } from "../models/product";
+import { useAccount } from "../account/AccountContext";
 
 export function MenuPage() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<string>("");
+    const { accountId, loading: accountLoading } = useAccount();
 
-  const [name, setName] = useState("");
-  const [price, setPrice] = useState<string>("");
-  const [category, setCategory] = useState("");
-  const [description, setDescription] = useState("");
+    const [products, setProducts] = useState<Product[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [status, setStatus] = useState<string>("");
 
-  const loadProducts = async () => {
-    setLoading(true);
-    try {
-      const prods = await listProducts(ACCOUNT_ID);
-      setProducts(prods);
-      setStatus("Loaded products ✅");
-    } catch (err) {
-      console.error(err);
-      setStatus("Error loading products");
-    } finally {
-      setLoading(false);
+    const [name, setName] = useState("");
+    const [price, setPrice] = useState<string>("");
+    const [category, setCategory] = useState("");
+    const [description, setDescription] = useState("");
+
+    useEffect(() => {
+        if (!accountId) return;
+
+        const load = async () => {
+            setLoading(true);
+            try {
+                const prods = await listProducts(accountId);
+                setProducts(prods);
+                setStatus("Loaded products ✅");
+            } catch (err) {
+                console.error(err);
+                setStatus("Error loading products");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        void load();
+    }, [accountId]);
+
+    if (accountLoading) {
+        return <p style={{ padding: "1.5rem" }}>Loading account...</p>;
     }
-  };
-
-  useEffect(() => {
-    void loadProducts();
-  }, []);
-
-  const handleCreateProduct = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!name || !price) {
-      setStatus("Name and price are required");
-      return;
+    if (!accountId) {
+        return <p style={{ padding: "1.5rem" }}>No account selected.</p>;
     }
 
-    try {
-      setLoading(true);
-      const priceNumber = parseFloat(price);
-      if (Number.isNaN(priceNumber)) {
-        setStatus("Price must be a number");
-        setLoading(false);
-        return;
-      }
+    const handleCreateProduct = async (e: FormEvent) => {
+        e.preventDefault();
+        if (!name || !price) {
+            setStatus("Name and price are required");
+            return;
+        }
 
-      await createProduct({
-        accountId: ACCOUNT_ID,
-        name,
-        price: priceNumber,
-        category: category || undefined,
-        description: description || undefined,
-        menuType: "food",
-        stockUnit: "each",
-        isActive: true,
-      });
+        try {
+            setLoading(true);
+            const priceNumber = parseFloat(price);
+            if (Number.isNaN(priceNumber)) {
+                setStatus("Price must be a number");
+                setLoading(false);
+                return;
+            }
 
-      setName("");
-      setPrice("");
-      setCategory("");
-      setDescription("");
+            await createProduct({
+                accountId,
+                name,
+                price: priceNumber,
+                category: category || undefined,
+                description: description || undefined,
+                menuType: "food",
+                stockUnit: "each",
+                isActive: true,
+            });
 
-      await loadProducts();
-      setStatus("Created product ✅");
-    } catch (err) {
-      console.error(err);
-      setStatus("Error creating product");
-      setLoading(false);
-    }
-  };
+            setName("");
+            setPrice("");
+            setCategory("");
+            setDescription("");
 
-  return (
-    <div style={{ padding: "1.5rem", maxWidth: 900, margin: "0 auto" }}>
-      <h1>Menu</h1>
-      <p style={{ color: "#555" }}>
-        Manage products for account <code>{ACCOUNT_ID}</code>
-      </p>
+            // reload products
+            const prods = await listProducts(accountId);
+            setProducts(prods);
+            setStatus("Created product ✅");
+        } catch (err) {
+            console.error(err);
+            setStatus("Error creating product");
+            setLoading(false);
+        }
+    };
 
-      <section style={{ margin: "1.5rem 0" }}>
-        <h2>Add Product</h2>
-        <form
-          onSubmit={handleCreateProduct}
-          style={{ display: "grid", gap: "0.5rem", maxWidth: 400 }}
-        >
-          <input
-            type="text"
-            placeholder="Name (e.g., Birria Taco)"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <input
-            type="text"
-            placeholder="Price (e.g., 5.50)"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-          />
-          <input
-            type="text"
-            placeholder="Category (optional)"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          />
-          <textarea
-            placeholder="Description (optional)"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-          <button type="submit" disabled={loading}>
-            {loading ? "Saving..." : "Create Product"}
-          </button>
-        </form>
-      </section>
+    return (
+        <div style={{ padding: "1.5rem", maxWidth: 900, margin: "0 auto" }}>
+            <h1>Menu</h1>
+            <p style={{ color: "#555" }}>
+                Manage products for account <code>{accountId}</code>
+            </p>
 
-      <section>
-        <h2>Products ({products.length})</h2>
-        {loading && products.length === 0 ? (
-          <p>Loading...</p>
-        ) : products.length === 0 ? (
-          <p style={{ color: "#777" }}>No products yet.</p>
-        ) : (
-          <ul>
-            {products.map((p) => (
-              <li key={p.id}>
-                <strong>{p.name}</strong> — ${p.price.toFixed(2)}{" "}
-                {p.category && <span> [{p.category}]</span>}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+            <section style={{ margin: "1.5rem 0" }}>
+                <h2>Add Product</h2>
+                <form
+                    onSubmit={handleCreateProduct}
+                    style={{ display: "grid", gap: "0.5rem", maxWidth: 400 }}
+                >
+                    <input
+                        type="text"
+                        placeholder="Name (e.g., Birria Taco)"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                    />
+                    <input
+                        type="text"
+                        placeholder="Price (e.g., 5.50)"
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                    />
+                    <input
+                        type="text"
+                        placeholder="Category (optional)"
+                        value={category}
+                        onChange={(e) => setCategory(e.target.value)}
+                    />
+                    <textarea
+                        placeholder="Description (optional)"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                    />
+                    <button type="submit" disabled={loading}>
+                        {loading ? "Saving..." : "Create Product"}
+                    </button>
+                </form>
+            </section>
 
-      <p style={{ marginTop: "1rem", color: "#555" }}>
-        <strong>Status:</strong> {status}
-      </p>
-    </div>
-  );
+            <section>
+                <h2>Products ({products.length})</h2>
+                {loading && products.length === 0 ? (
+                    <p>Loading...</p>
+                ) : products.length === 0 ? (
+                    <p style={{ color: "#777" }}>No products yet.</p>
+                ) : (
+                    <ul>
+                        {products.map((p) => (
+                            <li key={p.id}>
+                                <strong>{p.name}</strong> — ${p.price.toFixed(2)}{" "}
+                                {p.category && <span> [{p.category}]</span>}
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </section>
+
+            <p style={{ marginTop: "1rem", color: "#555" }}>
+                <strong>Status:</strong> {status}
+            </p>
+        </div>
+    );
 }
-
