@@ -1,5 +1,6 @@
 // src/pages/CreateOrderPage.tsx
-import { useEffect, useState, FormEvent } from "react";
+import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { listProducts } from "../services/product";
 import { createOrderWithLineItems } from "../services/order";
