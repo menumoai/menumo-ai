@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import {
     BrowserRouter,
     Routes,
@@ -17,7 +18,7 @@ import { DashboardPage } from "./pages/DashboardPage"; // we'll create this
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import { AccountProvider } from "./account/AccountContext";
 
-function RequireAuth({ children }: { children: JSX.Element }) {
+function RequireAuth({ children }: { children: ReactNode }) {
     const { user, loading } = useAuth();
 
     if (loading) {

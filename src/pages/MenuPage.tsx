@@ -1,5 +1,6 @@
 // src/pages/MenuPage.tsx
-import { FormEvent, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import { createProduct, listProducts } from "../services/product";
 import type { Product } from "../models/product";
 import { useAccount } from "../account/AccountContext";
