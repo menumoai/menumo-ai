@@ -1,13 +1,12 @@
 // src/pages/MenuPage.tsx
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
+
 import { createProduct, listProducts } from "../services/product";
 import type { Product } from "../models/product";
 import { useAccount } from "../account/AccountContext";
 
 export function MenuPage() {
-    const { accountId, loading: accountLoading } = useAccount();
-
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState<string>("");
@@ -17,24 +16,25 @@ export function MenuPage() {
     const [category, setCategory] = useState("");
     const [description, setDescription] = useState("");
 
+    const { accountId, loading: accountLoading, account } = useAccount();
+
+    const loadProducts = async (acctId: string) => {
+        setLoading(true);
+        try {
+            const prods = await listProducts(acctId);
+            setProducts(prods);
+            setStatus("Loaded products ✅");
+        } catch (err) {
+            console.error(err);
+            setStatus("Error loading products");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
         if (!accountId) return;
-
-        const load = async () => {
-            setLoading(true);
-            try {
-                const prods = await listProducts(accountId);
-                setProducts(prods);
-                setStatus("Loaded products ✅");
-            } catch (err) {
-                console.error(err);
-                setStatus("Error loading products");
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        void load();
+        void loadProducts(accountId);
     }, [accountId]);
 
     if (accountLoading) {
@@ -76,9 +76,7 @@ export function MenuPage() {
             setCategory("");
             setDescription("");
 
-            // reload products
-            const prods = await listProducts(accountId);
-            setProducts(prods);
+            await loadProducts(accountId);
             setStatus("Created product ✅");
         } catch (err) {
             console.error(err);
@@ -91,7 +89,8 @@ export function MenuPage() {
         <div style={{ padding: "1.5rem", maxWidth: 900, margin: "0 auto" }}>
             <h1>Menu</h1>
             <p style={{ color: "#555" }}>
-                Manage products for account <code>{accountId}</code>
+                Managing products for account{" "}
+                <code>{account?.name ?? accountId}</code>
             </p>
 
             <section style={{ margin: "1.5rem 0" }}>

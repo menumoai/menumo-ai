@@ -11,29 +11,31 @@ export function OrdersPage() {
     const [status, setStatus] = useState("");
     const { accountId, loading: accountLoading } = useAccount();
 
+    const loadOrders = async (acctId: string) => {
+        setLoading(true);
+        try {
+            const ords = await listOrders(acctId);
+            setOrders(ords);
+            setStatus("Orders loaded ✅");
+        } catch (err) {
+            console.error(err);
+            setStatus("Error loading orders");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
         if (!accountId) return;
-
-        const loadOrders = async () => {
-            setLoading(true);
-            try {
-                const ords = await listOrders(accountId);
-                setOrders(ords);
-                setStatus("Orders loaded ✅");
-            } catch (err) {
-                console.error(err);
-                setStatus("Error loading orders");
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        void loadOrders();
+        void loadOrders(accountId);
     }, [accountId]);
 
-    if (accountLoading)
+    if (accountLoading) {
         return <p style={{ padding: "1.5rem" }}>Loading account...</p>;
-    if (!accountId) return <p style={{ padding: "1.5rem" }}>No account.</p>;
+    }
+    if (!accountId) {
+        return <p style={{ padding: "1.5rem" }}>No account.</p>;
+    }
 
     return (
         <div style={{ padding: "1.5rem", maxWidth: 900, margin: "0 auto" }}>
@@ -69,4 +71,3 @@ export function OrdersPage() {
         </div>
     );
 }
-

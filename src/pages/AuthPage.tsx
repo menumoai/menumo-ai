@@ -8,7 +8,6 @@ import {
     signInWithPopup,
 } from "firebase/auth";
 import { auth, googleProvider } from "../firebaseClient";
-import { DEMO_ACCOUNT_ID } from "../config";
 import { createBusinessAccount } from "../services/accounts";
 import { createAccountUser } from "../services/users";
 
@@ -120,7 +119,8 @@ export function AuthPage() {
         <div style={{ padding: "1.5rem", maxWidth: 400, margin: "0 auto" }}>
             <h1>{mode === "signup" ? "Sign up" : "Log in"}</h1>
             <p style={{ color: "#555" }}>
-                You’ll be working in the demo account <code>{DEMO_ACCOUNT_ID}</code>.
+                When you sign up, we’ll create an account tied to your login so you can manage
+                your own menu and orders.
             </p>
 
             <form

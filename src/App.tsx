@@ -5,6 +5,8 @@ import {
     Route,
     Link,
     NavLink,
+    Navigate,
+    useLocation
 } from "react-router-dom";
 
 import { DevConsole } from "./pages/DevConsole";
@@ -13,31 +15,30 @@ import { OrdersPage } from "./pages/OrdersPage";
 import { CreateOrderPage } from "./pages/CreateOrderPage";
 import { AuthPage } from "./pages/AuthPage";
 import { CustomerOrderFormPage } from "./pages/CustomerOrderFormPage";
-import { DashboardPage } from "./pages/DashboardPage"; // we'll create this
-
+import { DashboardPage } from "./pages/DashboardPage";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import { AccountProvider } from "./account/AccountContext";
 
 function RequireAuth({ children }: { children: ReactNode }) {
     const { user, loading } = useAuth();
+    const location = useLocation();
 
     if (loading) {
         return <p style={{ padding: "1.5rem" }}>Checking auth...</p>;
     }
 
     if (!user) {
+        // send them to /auth but remember where they wanted to go
         return (
-            <div style={{ padding: "1.5rem" }}>
-                <h2>Sign in required</h2>
-                <p>
-                    This area is for staff only. Please{" "}
-                    <Link to="/auth">log in or sign up</Link> to continue.
-                </p>
-            </div>
+            <Navigate
+                to="/auth"
+                replace
+                state={{ from: location }}
+            />
         );
     }
 
-    return children;
+    return <>{children}</>;
 }
 
 function Shell() {
@@ -152,7 +153,7 @@ function Shell() {
 
             <main>
                 <Routes>
-                    <Route path="/" element={<RequireAuth><MenuPage /></RequireAuth>} />
+                    <Route path="/" element={<RequireAuth><DashboardPage /></RequireAuth>} />
                     <Route path="/menu" element={<RequireAuth><MenuPage /></RequireAuth>} />
                     <Route path="/orders" element={<RequireAuth><OrdersPage /></RequireAuth>} />
                     <Route path="/orders/new" element={<RequireAuth><CreateOrderPage /></RequireAuth>} />
