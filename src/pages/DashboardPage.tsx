@@ -1,246 +1,309 @@
 // src/pages/DashboardPage.tsx
-import { useEffect, useState } from "react";
-import { collectionGroup, getDocs, query, where } from "firebase/firestore";
-
+import { useEffect, useMemo, useState } from "react";
 import { useAccount } from "../account/AccountContext";
-import { db } from "../firebaseClient";
 import { listOrders } from "../services/order";
-import { listProducts } from "../services/product";
-
 import type { Order } from "../models/order";
-import type { Product } from "../models/product";
-import type { OrderLineItem } from "../models/order";
 
-interface TopProduct {
-    productId: string;
-    name: string;
-    totalQuantity: number;
+type Summary = {
+    count: number;
+    revenue: number;
+};
+
+function startOfDay(d: Date) {
+    const copy = new Date(d);
+    copy.setHours(0, 0, 0, 0);
+    return copy;
+}
+
+function isSameDay(a: Date, b: Date) {
+    return (
+        a.getFullYear() === b.getFullYear() &&
+        a.getMonth() === b.getMonth() &&
+        a.getDate() === b.getDate()
+    );
 }
 
 export function DashboardPage() {
-    const { accountId, loading: accountLoading } = useAccount();
+    const { accountId, loading: accountLoading, account } = useAccount();
     const [orders, setOrders] = useState<Order[]>([]);
-    const [products, setProducts] = useState<Product[]>([]);
-    const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
-    const [todayOrderCount, setTodayOrderCount] = useState(0);
-    const [todayRevenue, setTodayRevenue] = useState(0);
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState("");
 
     useEffect(() => {
-        if (!accountId || accountLoading) return;
+        if (!accountId) return;
 
         const load = async () => {
             setLoading(true);
+            setStatus("Loading orders...");
             try {
-                const [ords, prods] = await Promise.all([
-                    listOrders(accountId),
-                    listProducts(accountId),
-                ]);
-
+                const ords = await listOrders(accountId);
                 setOrders(ords);
-                setProducts(prods);
-
-                // compute "today"
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                const tomorrow = new Date(today);
-                tomorrow.setDate(tomorrow.getDate() + 1);
-
-                let todayCount = 0;
-                let todayTotal = 0;
-
-                for (const o of ords) {
-                    if (!o.placedAt) continue;
-                    const placed = (o.placedAt as any).toDate
-                        ? (o.placedAt as any).toDate()
-                        : new Date(o.placedAt as any);
-
-                    if (placed >= today && placed < tomorrow) {
-                        todayCount += 1;
-                        todayTotal += o.totalAmount ?? 0;
-                    }
-                }
-
-                setTodayOrderCount(todayCount);
-                setTodayRevenue(todayTotal);
-
-                // compute top products from lineItems via collectionGroup
-                const lineItemsQuery = query(
-                    collectionGroup(db, "lineItems"),
-                    where("accountId", "==", accountId)
-                );
-
-                const snap = await getDocs(lineItemsQuery);
-                const quantityByProduct: Record<string, number> = {};
-
-                snap.forEach((docSnap) => {
-                    const li = docSnap.data() as OrderLineItem;
-                    if (!li.productId || !li.quantity) return;
-                    quantityByProduct[li.productId] =
-                        (quantityByProduct[li.productId] ?? 0) + li.quantity;
-                });
-
-                const productNameById: Record<string, string> = {};
-                for (const p of prods) {
-                    productNameById[p.id] = p.name;
-                }
-
-                const top = Object.entries(quantityByProduct)
-                    .map(([productId, totalQuantity]) => ({
-                        productId,
-                        totalQuantity,
-                        name: productNameById[productId] ?? productId,
-                    }))
-                    .sort((a, b) => b.totalQuantity - a.totalQuantity)
-                    .slice(0, 5);
-
-                setTopProducts(top);
-                setStatus("Dashboard loaded ✅");
+                setStatus(`Loaded ${ords.length} orders ✅`);
             } catch (err) {
-                console.error(err);
-                setStatus("Error loading dashboard");
+                console.error("Error loading orders for dashboard", err);
+                setStatus("Error loading orders");
             } finally {
                 setLoading(false);
             }
         };
 
         void load();
-    }, [accountId, accountLoading]);
+    }, [accountId]);
 
     if (accountLoading) {
-        return <p style={{ padding: "1.5rem" }}>Loading account...</p>;
+        return (
+            <p className="px-6 py-6 text-sm text-slate-600 dark:text-slate-300">
+                Loading account...
+            </p>
+        );
+    }
+    if (!accountId) {
+        return (
+            <p className="px-6 py-6 text-sm text-slate-600 dark:text-slate-300">
+                No account selected.
+            </p>
+        );
     }
 
-    if (!accountId) {
-        return <p style={{ padding: "1.5rem" }}>No account.</p>;
-    }
+    const { today, last7Days, allTime } = useMemo<{
+        today: Summary;
+        last7Days: Summary;
+        allTime: Summary;
+    }>(() => {
+        const base: Summary = { count: 0, revenue: 0 };
+
+        const acc = {
+            today: { ...base },
+            last7Days: { ...base },
+            allTime: { ...base },
+        };
+
+        const now = new Date();
+        const todayStart = startOfDay(now);
+        const weekAgo = new Date(
+            todayStart.getTime() - 7 * 24 * 60 * 60 * 1000
+        );
+
+        for (const o of orders) {
+            const placed =
+                o.placedAt instanceof Date
+                    ? o.placedAt
+                    : new Date(o.placedAt as unknown as string);
+
+            const total = o.totalAmount ?? 0;
+
+            acc.allTime.count += 1;
+            acc.allTime.revenue += total;
+
+            if (placed >= weekAgo && placed <= now) {
+                acc.last7Days.count += 1;
+                acc.last7Days.revenue += total;
+            }
+
+            if (isSameDay(placed, now)) {
+                acc.today.count += 1;
+                acc.today.revenue += total;
+            }
+        }
+
+        return acc;
+    }, [orders]);
+
+    const recentOrders = useMemo(
+        () =>
+            [...orders]
+                .sort((a, b) => {
+                    const da =
+                        a.placedAt instanceof Date
+                            ? a.placedAt.getTime()
+                            : new Date(
+                                a.placedAt as unknown as string
+                            ).getTime();
+                    const db =
+                        b.placedAt instanceof Date
+                            ? b.placedAt.getTime()
+                            : new Date(
+                                b.placedAt as unknown as string
+                            ).getTime();
+                    return db - da;
+                })
+                .slice(0, 10),
+        [orders]
+    );
 
     return (
-        <div style={{ padding: "1.5rem", maxWidth: 960, margin: "0 auto" }}>
-            <h1>Dashboard</h1>
-            <p style={{ color: "#555" }}>
-                Account: <code>{accountId}</code>
-            </p>
+        <div className="mx-auto max-w-5xl px-4 py-6">
+            <header className="mb-6">
+                <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">
+                    Dashboard
+                </h1>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                    Sales overview for{" "}
+                    <span className="font-medium text-slate-800 dark:text-slate-100">
+                        {account?.name ?? accountId}
+                    </span>
+                </p>
+            </header>
 
-            {loading && <p>Loading...</p>}
-
-            <section
-                style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                    gap: "1rem",
-                    marginTop: "1rem",
-                    marginBottom: "1.5rem",
-                }}
-            >
-                <div
-                    style={{
-                        border: "1px solid #eee",
-                        borderRadius: 8,
-                        padding: "0.75rem 1rem",
-                    }}
-                >
-                    <h3 style={{ margin: 0, marginBottom: "0.5rem" }}>Today’s Orders</h3>
-                    <p style={{ fontSize: "1.8rem", margin: 0 }}>{todayOrderCount}</p>
-                </div>
-                <div
-                    style={{
-                        border: "1px solid #eee",
-                        borderRadius: 8,
-                        padding: "0.75rem 1rem",
-                    }}
-                >
-                    <h3 style={{ margin: 0, marginBottom: "0.5rem" }}>Today’s Revenue</h3>
-                    <p style={{ fontSize: "1.8rem", margin: 0 }}>
-                        ${todayRevenue.toFixed(2)}
+            {/* Summary cards */}
+            <section className="mb-8 grid gap-4 md:grid-cols-3">
+                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                    <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+                        Today
+                    </h2>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        Orders placed since midnight.
                     </p>
+                    <div className="mt-4 space-y-1">
+                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            Orders
+                        </p>
+                        <p className="text-xl font-semibold text-slate-900 dark:text-slate-50">
+                            {today.count}
+                        </p>
+                        <p className="mt-2 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            Revenue
+                        </p>
+                        <p className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">
+                            ${today.revenue.toFixed(2)}
+                        </p>
+                    </div>
                 </div>
-                <div
-                    style={{
-                        border: "1px solid #eee",
-                        borderRadius: 8,
-                        padding: "0.75rem 1rem",
-                    }}
-                >
-                    <h3 style={{ margin: 0, marginBottom: "0.5rem" }}>All Orders</h3>
-                    <p style={{ fontSize: "1.8rem", margin: 0 }}>{orders.length}</p>
+
+                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                    <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+                        Last 7 Days
+                    </h2>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        Rolling week, including today.
+                    </p>
+                    <div className="mt-4 space-y-1">
+                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            Orders
+                        </p>
+                        <p className="text-xl font-semibold text-slate-900 dark:text-slate-50">
+                            {last7Days.count}
+                        </p>
+                        <p className="mt-2 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            Revenue
+                        </p>
+                        <p className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">
+                            ${last7Days.revenue.toFixed(2)}
+                        </p>
+                    </div>
                 </div>
-                <div
-                    style={{
-                        border: "1px solid #eee",
-                        borderRadius: 8,
-                        padding: "0.75rem 1rem",
-                    }}
-                >
-                    <h3 style={{ margin: 0, marginBottom: "0.5rem" }}>Menu Items</h3>
-                    <p style={{ fontSize: "1.8rem", margin: 0 }}>{products.length}</p>
+
+                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                    <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+                        All Time
+                    </h2>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        Since this account started using Menumo.
+                    </p>
+                    <div className="mt-4 space-y-1">
+                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            Orders
+                        </p>
+                        <p className="text-xl font-semibold text-slate-900 dark:text-slate-50">
+                            {allTime.count}
+                        </p>
+                        <p className="mt-2 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            Revenue
+                        </p>
+                        <p className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">
+                            ${allTime.revenue.toFixed(2)}
+                        </p>
+                    </div>
                 </div>
             </section>
 
+            {/* Recent orders */}
             <section>
-                <h2>Top Products (by quantity sold)</h2>
-                {topProducts.length === 0 ? (
-                    <p style={{ color: "#777" }}>No sales yet.</p>
+                <div className="mb-3 flex items-center justify-between gap-2">
+                    <h2 className="text-base font-semibold text-slate-900 dark:text-slate-50">
+                        Recent Orders
+                    </h2>
+                    {loading && orders.length === 0 && (
+                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                            Loading...
+                        </span>
+                    )}
+                </div>
+
+                {loading && orders.length === 0 ? (
+                    <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                        Loading...
+                    </p>
+                ) : recentOrders.length === 0 ? (
+                    <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                        No orders yet. Your first ticket will show up here.
+                    </p>
                 ) : (
-                    <table
-                        style={{
-                            width: "100%",
-                            borderCollapse: "collapse",
-                            marginTop: "0.5rem",
-                        }}
-                    >
-                        <thead>
-                            <tr>
-                                <th
-                                    style={{
-                                        textAlign: "left",
-                                        borderBottom: "1px solid #eee",
-                                        padding: "0.5rem",
-                                    }}
-                                >
-                                    Product
-                                </th>
-                                <th
-                                    style={{
-                                        textAlign: "right",
-                                        borderBottom: "1px solid #eee",
-                                        padding: "0.5rem",
-                                    }}
-                                >
-                                    Quantity
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {topProducts.map((tp) => (
-                                <tr key={tp.productId}>
-                                    <td
-                                        style={{
-                                            padding: "0.5rem",
-                                            borderBottom: "1px solid #f5f5f5",
-                                        }}
-                                    >
-                                        {tp.name}
-                                    </td>
-                                    <td
-                                        style={{
-                                            padding: "0.5rem",
-                                            textAlign: "right",
-                                            borderBottom: "1px solid #f5f5f5",
-                                        }}
-                                    >
-                                        {tp.totalQuantity}
-                                    </td>
+                    <div className="mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                        <table className="min-w-full text-sm">
+                            <thead className="bg-slate-50 dark:bg-slate-950/60">
+                                <tr>
+                                    <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                        Order ID
+                                    </th>
+                                    <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                        Status
+                                    </th>
+                                    <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                        Channel
+                                    </th>
+                                    <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                        Total
+                                    </th>
+                                    <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                        Placed At
+                                    </th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                                {recentOrders.map((o) => {
+                                    const placed =
+                                        o.placedAt instanceof Date
+                                            ? o.placedAt
+                                            : new Date(
+                                                o.placedAt as unknown as string
+                                            );
+                                    const totalAmount = o.totalAmount ?? 0;
+
+                                    return (
+                                        <tr
+                                            key={o.id}
+                                            className="hover:bg-slate-50 dark:hover:bg-slate-900/70"
+                                        >
+                                            <td className="px-4 py-2 align-top">
+                                                <span className="font-mono text-xs text-slate-800 dark:text-slate-100">
+                                                    {o.id}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-2 align-top capitalize text-slate-700 dark:text-slate-200">
+                                                {o.status}
+                                            </td>
+                                            <td className="px-4 py-2 align-top text-slate-700 dark:text-slate-200">
+                                                {o.channel}
+                                            </td>
+                                            <td className="px-4 py-2 text-right align-top font-semibold text-slate-900 dark:text-slate-50">
+                                                ${totalAmount.toFixed(2)}
+                                            </td>
+                                            <td className="px-4 py-2 align-top text-slate-600 dark:text-slate-300">
+                                                {placed.toLocaleString()}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
             </section>
 
-            <p style={{ marginTop: "1rem", color: "#555" }}>
-                <strong>Status:</strong> {status}
+            <p className="mt-4 text-xs text-slate-500 dark:text-slate-400">
+                <span className="font-semibold">Status:</span>{" "}
+                {status || "—"}
             </p>
         </div>
     );

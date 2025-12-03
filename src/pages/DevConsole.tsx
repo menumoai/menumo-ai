@@ -23,10 +23,18 @@ export function DevConsole() {
     const { accountId, loading: accountLoading } = useAccount();
 
     if (accountLoading) {
-        return <p style={{ padding: "1.5rem" }}>Loading account...</p>;
+        return (
+            <p className="px-6 py-6 text-sm text-slate-600 dark:text-slate-300">
+                Loading account...
+            </p>
+        );
     }
     if (!accountId) {
-        return <p style={{ padding: "1.5rem" }}>No account selected.</p>;
+        return (
+            <p className="px-6 py-6 text-sm text-slate-600 dark:text-slate-300">
+                No account selected.
+            </p>
+        );
     }
 
     const handleSeedAccountAndOwner = async () => {
@@ -196,99 +204,170 @@ export function DevConsole() {
         }
     };
 
-    return (
-        <div style={{ padding: "1.5rem", maxWidth: 900, margin: "0 auto" }}>
-            <h1>Menumo AI – Dev Console</h1>
-            <p style={{ marginBottom: "1rem", color: "#555" }}>
-                Account: <code>{accountId}</code>
-            </p>
+    const buttonBase =
+        "inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium " +
+        "text-slate-800 shadow-sm transition hover:border-indigo-400 hover:text-indigo-700 hover:shadow " +
+        "dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:border-indigo-400 dark:hover:text-indigo-300";
 
-            <div
-                style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                    gap: "0.75rem",
-                    marginBottom: "1.5rem",
-                }}
-            >
-                <button onClick={handleSeedAccountAndOwner}>Seed Account + Owner</button>
-                <button onClick={handleSeedProducts}>Seed Demo Products</button>
-                <button onClick={handleSeedCustomer}>Seed Demo Customer</button>
-                <button onClick={handleCreateDemoOrder}>Create Demo Order</button>
-                <button onClick={handleLoadProducts}>Load Products</button>
-                <button onClick={handleLoadCustomers}>Load Customers</button>
-                <button onClick={handleLoadOrders}>Load Orders</button>
+    return (
+        <div className="mx-auto max-w-5xl px-4 py-6">
+            <header className="mb-4">
+                <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">
+                    Menumo AI – Dev Console
+                </h1>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                    Account:{" "}
+                    <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-800 dark:bg-slate-800 dark:text-slate-100">
+                        {accountId}
+                    </code>
+                </p>
+            </header>
+
+            {/* Actions */}
+            <div className="mb-6 grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
+                <button onClick={handleSeedAccountAndOwner} className={buttonBase}>
+                    Seed Account + Owner
+                </button>
+                <button onClick={handleSeedProducts} className={buttonBase}>
+                    Seed Demo Products
+                </button>
+                <button onClick={handleSeedCustomer} className={buttonBase}>
+                    Seed Demo Customer
+                </button>
+                <button onClick={handleCreateDemoOrder} className={buttonBase}>
+                    Create Demo Order
+                </button>
+                <button onClick={handleLoadProducts} className={buttonBase}>
+                    Load Products
+                </button>
+                <button onClick={handleLoadCustomers} className={buttonBase}>
+                    Load Customers
+                </button>
+                <button onClick={handleLoadOrders} className={buttonBase}>
+                    Load Orders
+                </button>
             </div>
 
-            <p>
-                <strong>Status:</strong> {status}
+            {/* Status */}
+            <p className="mb-6 inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                <span className="mr-2 inline-block h-2 w-2 rounded-full bg-emerald-500" />
+                <span>
+                    <span className="font-semibold">Status:</span> {status}
+                </span>
             </p>
 
-            <hr style={{ margin: "1.5rem 0" }} />
+            <div className="space-y-6">
+                {/* Users */}
+                <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                    <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+                        Users ({users.length})
+                    </h2>
+                    {users.length === 0 ? (
+                        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                            No users loaded yet.
+                        </p>
+                    ) : (
+                        <ul className="mt-2 space-y-1 text-sm text-slate-700 dark:text-slate-200">
+                            {users.map((u) => (
+                                <li key={u.id}>
+                                    <span className="font-medium">
+                                        {u.firstName} {u.lastName}
+                                    </span>{" "}
+                                    — {u.email}{" "}
+                                    {u.role && (
+                                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                                            ({u.role})
+                                        </span>
+                                    )}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </section>
 
-            <section style={{ marginBottom: "1.5rem" }}>
-                <h2>Users ({users.length})</h2>
-                {users.length === 0 ? (
-                    <p style={{ color: "#777" }}>No users loaded yet.</p>
-                ) : (
-                    <ul>
-                        {users.map((u) => (
-                            <li key={u.id}>
-                                {u.firstName} {u.lastName} — {u.email} ({u.role})
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </section>
+                {/* Customers */}
+                <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                    <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+                        Customers ({customers.length})
+                    </h2>
+                    {customers.length === 0 ? (
+                        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                            No customers loaded yet.
+                        </p>
+                    ) : (
+                        <ul className="mt-2 space-y-1 text-sm text-slate-700 dark:text-slate-200">
+                            {customers.map((c) => (
+                                <li key={c.id}>
+                                    <span className="font-medium">
+                                        {c.name ?? "Unnamed"}
+                                    </span>{" "}
+                                    — {c.phone ?? "no phone"}{" "}
+                                    <span className="text-xs text-slate-500 dark:text-slate-400">
+                                        {c.marketingOptIn ? "(opted in)" : "(no marketing)"}
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </section>
 
-            <section style={{ marginBottom: "1.5rem" }}>
-                <h2>Customers ({customers.length})</h2>
-                {customers.length === 0 ? (
-                    <p style={{ color: "#777" }}>No customers loaded yet.</p>
-                ) : (
-                    <ul>
-                        {customers.map((c) => (
-                            <li key={c.id}>
-                                {c.name ?? "Unnamed"} — {c.phone ?? "no phone"}{" "}
-                                {c.marketingOptIn ? "(opted in)" : "(no marketing)"}
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </section>
+                {/* Products */}
+                <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                    <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+                        Products ({products.length})
+                    </h2>
+                    {products.length === 0 ? (
+                        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                            No products loaded yet.
+                        </p>
+                    ) : (
+                        <ul className="mt-2 space-y-1 text-sm text-slate-700 dark:text-slate-200">
+                            {products.map((p) => (
+                                <li key={p.id}>
+                                    <span className="font-semibold">{p.name}</span> — $
+                                    {p.price.toFixed(2)}{" "}
+                                    {!p.isActive && (
+                                        <span className="text-xs text-amber-600 dark:text-amber-400">
+                                            (inactive)
+                                        </span>
+                                    )}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </section>
 
-            <section style={{ marginBottom: "1.5rem" }}>
-                <h2>Products ({products.length})</h2>
-                {products.length === 0 ? (
-                    <p style={{ color: "#777" }}>No products loaded yet.</p>
-                ) : (
-                    <ul>
-                        {products.map((p) => (
-                            <li key={p.id}>
-                                <strong>{p.name}</strong> — ${p.price.toFixed(2)}{" "}
-                                {p.isActive ? "" : "(inactive)"}
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </section>
-
-            <section>
-                <h2>Orders ({orders.length})</h2>
-                {orders.length === 0 ? (
-                    <p style={{ color: "#777" }}>No orders loaded yet.</p>
-                ) : (
-                    <ul>
-                        {orders.map((o) => (
-                            <li key={o.id}>
-                                <strong>{o.id}</strong> — status: {o.status}, total: $
-                                {o.totalAmount.toFixed(2)} via {o.channel}
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </section>
+                {/* Orders */}
+                <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                    <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+                        Orders ({orders.length})
+                    </h2>
+                    {orders.length === 0 ? (
+                        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                            No orders loaded yet.
+                        </p>
+                    ) : (
+                        <ul className="mt-2 space-y-1 text-sm text-slate-700 dark:text-slate-200">
+                            {orders.map((o) => (
+                                <li key={o.id}>
+                                    <span className="font-mono text-xs bg-slate-100 dark:bg-slate-800 rounded px-1.5 py-0.5 mr-1">
+                                        {o.id}
+                                    </span>
+                                    <span>
+                                        status:{" "}
+                                        <span className="font-medium capitalize">{o.status}</span>,
+                                        {"  "}total:{" "}
+                                        <span className="font-semibold">
+                                            ${o.totalAmount.toFixed(2)}
+                                        </span>{" "}
+                                        via {o.channel}
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </section>
+            </div>
         </div>
     );
 }
-
