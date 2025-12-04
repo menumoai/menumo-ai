@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, FormEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
 
 import { listOrders, createOrderWithLineItems } from "../services/order";
