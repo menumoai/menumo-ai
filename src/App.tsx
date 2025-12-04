@@ -177,7 +177,7 @@ function Shell() {
 
                         {/* Customer entry point – always visible, owner can open it too */}
                         <NavLink
-                            to="/trucks"
+                            to="/browse-trucks"
                             className={({ isActive }) =>
                                 [
                                     "transition-colors",
@@ -296,7 +296,7 @@ function Shell() {
                     {/* customer-facing, no auth required */}
                     {/* Auth & customer-facing */}
                     <Route path="/auth" element={<AuthPage />} />
-                    <Route path="/trucks" element={<BrowseTrucksPage />} />
+                    <Route path="/browse-trucks" element={<BrowseTrucksPage />} />
                     <Route path="/order-form" element={<CustomerOrderFormPage />} />
                 </Routes>
 
