@@ -7,7 +7,7 @@ import { createAccountUser, listAccountUsers } from "../services/users";
 import { createProduct, listProducts } from "../services/product";
 import { createOrderWithLineItems, listOrders } from "../services/order";
 import { createCustomer, listCustomers } from "../services/customer";
-
+import { createLocation, createPublicTruckLocation } from "../services/location";
 import type { Product } from "../models/product";
 import type { Order } from "../models/order";
 import type { AccountUser } from "../models/user";
@@ -69,6 +69,51 @@ export function DevConsole() {
         } catch (err) {
             console.error("❌ Error seeding account + owner:", err);
             setStatus("Error seeding account + owner – see console");
+        }
+    };
+    const handleSeedLocation = async () => {
+        setStatus("Seeding demo location...");
+
+        try {
+            // Demo coordinates – replace with whatever makes sense
+            // Example: Baton Rouge-ish
+            const locationName = "Demo Taco Truck – LSU Corner";
+
+            const locationId = await createLocation({
+                accountId,
+                name: locationName,
+                description: "Our main truck location for the demo.",
+                address1: "123 College Dr",
+                city: "Baton Rouge",
+                state: "LA",
+                postalCode: "70808",
+                country: "US",
+                latitude: 30.41,
+                longitude: -91.18,
+                isTruckLocation: true,
+            });
+
+            await createPublicTruckLocation({
+                accountId,
+                id: locationId, // 👈 keep same ID for easy joining
+                name: locationName,
+                description: "Our main truck location for the demo.",
+                address1: "123 College Dr",
+                city: "Baton Rouge",
+                state: "LA",
+                postalCode: "70808",
+                country: "US",
+                latitude: 30.41,
+                longitude: -91.18,
+                isTruckLocation: true,
+            });
+
+            setStatus(
+                `Location + public truck seeded successfully ✅ (id: ${locationId})`
+            );
+        } catch (err) {
+            console.error("❌ Error seeding location:", err);
+            setStatus("Error seeding location – see console");
         }
     };
 
@@ -245,6 +290,9 @@ export function DevConsole() {
                 </button>
                 <button onClick={handleLoadOrders} className={buttonBase}>
                     Load Orders
+                </button>
+                <button onClick={handleSeedLocation} className={buttonBase}>
+                    Seed Demo Location
                 </button>
             </div>
 

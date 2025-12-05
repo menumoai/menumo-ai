@@ -24,47 +24,13 @@ function isSameDay(a: Date, b: Date) {
 }
 
 export function DashboardPage() {
+
     const { accountId, loading: accountLoading, account } = useAccount();
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState("");
 
-    useEffect(() => {
-        if (!accountId) return;
-
-        const load = async () => {
-            setLoading(true);
-            setStatus("Loading orders...");
-            try {
-                const ords = await listOrders(accountId);
-                setOrders(ords);
-                setStatus(`Loaded ${ords.length} orders ✅`);
-            } catch (err) {
-                console.error("Error loading orders for dashboard", err);
-                setStatus("Error loading orders");
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        void load();
-    }, [accountId]);
-
-    if (accountLoading) {
-        return (
-            <p className="px-6 py-6 text-sm text-slate-600 dark:text-slate-300">
-                Loading account...
-            </p>
-        );
-    }
-    if (!accountId) {
-        return (
-            <p className="px-6 py-6 text-sm text-slate-600 dark:text-slate-300">
-                No account selected.
-            </p>
-        );
-    }
-
+    // ✅ hooks BEFORE any early return
     const { today, last7Days, allTime } = useMemo<{
         today: Summary;
         last7Days: Summary;
@@ -116,21 +82,53 @@ export function DashboardPage() {
                     const da =
                         a.placedAt instanceof Date
                             ? a.placedAt.getTime()
-                            : new Date(
-                                a.placedAt as unknown as string
-                            ).getTime();
+                            : new Date(a.placedAt as unknown as string).getTime();
                     const db =
                         b.placedAt instanceof Date
                             ? b.placedAt.getTime()
-                            : new Date(
-                                b.placedAt as unknown as string
-                            ).getTime();
+                            : new Date(b.placedAt as unknown as string).getTime();
                     return db - da;
                 })
                 .slice(0, 10),
         [orders]
     );
 
+    useEffect(() => {
+        if (!accountId) return;
+
+        const load = async () => {
+            setLoading(true);
+            setStatus("Loading orders...");
+            try {
+                const ords = await listOrders(accountId);
+                setOrders(ords);
+                setStatus(`Loaded ${ords.length} orders ✅`);
+            } catch (err) {
+                console.error("Error loading orders for dashboard", err);
+                setStatus("Error loading orders");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        void load();
+    }, [accountId]);
+
+    // ✅ early returns AFTER all hooks
+    if (accountLoading) {
+        return (
+            <p className="px-6 py-6 text-sm text-slate-600 dark:text-slate-300">
+                Loading account...
+            </p>
+        );
+    }
+    if (!accountId) {
+        return (
+            <p className="px-6 py-6 text-sm text-slate-600 dark:text-slate-300">
+                No account selected.
+            </p>
+        );
+    }
     return (
         <div className="mx-auto max-w-5xl px-4 py-6">
             <header className="mb-6">
