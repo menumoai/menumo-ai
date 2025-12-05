@@ -1,4 +1,5 @@
 // src/pages/CustomerOrderFormPage.tsx
+
 import { useEffect, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 
@@ -6,6 +7,7 @@ import { listProducts } from "../services/product";
 import { createCustomer } from "../services/customer";
 import { createOrderWithLineItems } from "../services/order";
 import type { Product } from "../models/product";
+import { useAccount } from "../account/AccountContext";
 
 interface QuantityMap {
     [productId: string]: string;
@@ -20,7 +22,13 @@ export function CustomerOrderFormPage() {
     const [loading, setLoading] = useState(false);
 
     const [searchParams] = useSearchParams();
-    const accountId = searchParams.get("account");
+    const urlAccountId = searchParams.get("account");
+
+    // 🔗 use AccountContext so owners/staff can preview their own customer form
+    const { accountId: contextAccountId, loading: accountLoading } = useAccount();
+
+    // 1) Prefer URL param, 2) fall back to context accountId, 3) else null
+    const accountId = urlAccountId ?? contextAccountId ?? null;
 
     useEffect(() => {
         if (!accountId) return;
@@ -49,18 +57,35 @@ export function CustomerOrderFormPage() {
         void load();
     }, [accountId]);
 
-    if (!accountId) {
+    // If we're still resolving the logged-in account and there's no URL override,
+    // give it a second instead of instantly erroring.
+    if (!urlAccountId && accountLoading) {
         return (
             <div className="mx-auto max-w-xl px-4 py-8">
                 <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50">
                     Place an Order
                 </h1>
-                <p className="mt-3 text-sm text-red-600 dark:text-red-400">
-                    No account specified. This page should be opened with a link like:
+                <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
+                    Loading food truck information…
                 </p>
-                <code className="mt-2 block rounded-md bg-slate-900 px-3 py-2 text-xs font-mono text-slate-50">
-                    /order-form?account=YOUR_ACCOUNT_ID
-                </code>
+            </div>
+        );
+    }
+
+    if (!accountId) {
+        // Truly no way to know which truck this order is for
+        return (
+            <div className="mx-auto max-w-xl px-4 py-8">
+                <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50">
+                    Place an Order
+                </h1>
+                <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
+                    This order page needs to be tied to a specific food truck account.
+                </p>
+                <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                    Please open this page using the link provided by the food truck, or
+                    log in as the truck owner to preview your order form.
+                </p>
             </div>
         );
     }

@@ -10,13 +10,15 @@ import { doc, onSnapshot } from "firebase/firestore";
 
 import { db } from "../firebaseClient";
 import { useAuth } from "../auth/AuthContext";
-// adjust this import name if your model is named differently
 import type { BusinessAccount } from "../models/account";
+import type { AppUserRole } from "../models/user";
 
 type AccountContextValue = {
     accountId: string | null;
     account: BusinessAccount | null;
     loading: boolean;
+    role: AppUserRole | null;
+    isBusiness: boolean;
 };
 
 const AccountContext = createContext<AccountContextValue | undefined>(
@@ -62,12 +64,22 @@ export function AccountProvider({ children }: { children: ReactNode }) {
         return () => unsub();
     }, [user?.uid]);
 
+    // derive role + isBusiness
+    const isBusiness = !!account;
+    const role: AppUserRole | null = !user
+        ? null
+        : isBusiness
+            ? "owner" // later we can read real AccountUser.role
+            : "customer";
+
     return (
         <AccountContext.Provider
             value={{
                 accountId,
                 account,
                 loading: authLoading || accountLoading,
+                role,
+                isBusiness,
             }}
         >
             {children}
@@ -82,4 +94,3 @@ export function useAccount() {
     }
     return ctx;
 }
-

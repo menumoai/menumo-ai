@@ -85,21 +85,32 @@ export async function createOrderWithLineItems(params: {
     return orderRef.id;
 }
 
-
 export async function listOrders(accountId: string): Promise<Order[]> {
     const q = query(ordersCol(accountId));
     const snap = await getDocs(q);
-    return snap.docs.map((d) => d.data() as Order);
+
+    return snap.docs.map((d) => {
+        const data = d.data() as Order;
+        return {
+            ...data,
+            id: d.id,
+        };
+    });
 }
 
-
-export async function getOrder(accountId: string, orderId: string): Promise<Order | null> {
+export async function getOrder(
+    accountId: string,
+    orderId: string
+): Promise<Order | null> {
     const orderRef = doc(db, "accounts", accountId, "orders", orderId);
     const snap = await getDoc(orderRef);
     if (!snap.exists()) return null;
+
+    const data = snap.data() as Order;
+
     return {
-        id: snap.id,
-        ...(snap.data() as Order),
+        ...data,
+        id: snap.id, // single explicit id
     };
 }
 
@@ -109,10 +120,15 @@ export async function listOrderLineItems(
 ): Promise<OrderLineItem[]> {
     const itemsCol = collection(db, "accounts", accountId, "orders", orderId, "lineItems");
     const snap = await getDocs(itemsCol);
-    return snap.docs.map((d) => ({
-        id: d.id,
-        ...(d.data() as OrderLineItem),
-    }));
+
+    return snap.docs.map((d) => {
+        const data = d.data() as OrderLineItem;
+
+        return {
+            ...data,
+            id: d.id, // single explicit id
+        };
+    });
 }
 
 type OrderStatus = Order["status"];
