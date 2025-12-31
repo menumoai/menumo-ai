@@ -1,6 +1,4 @@
-// src/pages/CustomerOrderFormPage.tsx
-
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { listProducts } from "../services/product";
@@ -9,41 +7,51 @@ import { createOrderWithLineItems } from "../services/order";
 import type { Product } from "../models/product";
 import { useAccount } from "../account/AccountContext";
 
-interface QuantityMap {
-    [productId: string]: string;
-}
+import { CustomerMenuTable } from "../components/orders/CustomerMenuTable";
+import { CustomerDetailsSection } from "../components/orders/CustomerDetailsSection";
+
+import { buildInitialOrderState } from "../orders/orderInit";
+import { buildOrderItems } from "../orders/orderItemBuilder";
+import { toggleOption } from "../orders/toggleOption";
+import { resolveAccountId } from "../orders/resolveAccountId";
+
+// Ideally these types live in ../orders/orderTypes now (shared by staff + customer)
+import type { QuantityMap, SelectedOptionsMap } from "../orders/orderTypes";
 
 export function CustomerOrderFormPage() {
     const [products, setProducts] = useState<Product[]>([]);
     const [quantities, setQuantities] = useState<QuantityMap>({});
+    const [selectedOptions, setSelectedOptions] = useState<SelectedOptionsMap>({});
+
     const [customerName, setCustomerName] = useState("");
     const [customerPhone, setCustomerPhone] = useState("");
+
     const [status, setStatus] = useState("");
     const [loading, setLoading] = useState(false);
 
     const [searchParams] = useSearchParams();
     const urlAccountId = searchParams.get("account");
 
-    // 🔗 use AccountContext so owners/staff can preview their own customer form
     const { accountId: contextAccountId, loading: accountLoading } = useAccount();
 
-    // 1) Prefer URL param, 2) fall back to context accountId, 3) else null
-    const accountId = urlAccountId ?? contextAccountId ?? null;
+    const accountId = useMemo(
+        () => resolveAccountId(urlAccountId, contextAccountId),
+        [urlAccountId, contextAccountId]
+    );
 
     useEffect(() => {
         if (!accountId) return;
 
         const load = async () => {
             setLoading(true);
+            setStatus("");
             try {
                 const prods = await listProducts(accountId);
                 setProducts(prods);
 
-                const qInit: QuantityMap = {};
-                for (const p of prods) {
-                    qInit[p.id] = "";
-                }
+                const { quantities: qInit, selectedOptions: oInit } = buildInitialOrderState(prods);
                 setQuantities(qInit);
+                setSelectedOptions(oInit);
 
                 setStatus("Menu loaded ✅");
             } catch (err) {
@@ -57,8 +65,7 @@ export function CustomerOrderFormPage() {
         void load();
     }, [accountId]);
 
-    // If we're still resolving the logged-in account and there's no URL override,
-    // give it a second instead of instantly erroring.
+    // Loading / no-account states
     if (!urlAccountId && accountLoading) {
         return (
             <div className="mx-auto max-w-xl px-4 py-8">
@@ -73,7 +80,6 @@ export function CustomerOrderFormPage() {
     }
 
     if (!accountId) {
-        // Truly no way to know which truck this order is for
         return (
             <div className="mx-auto max-w-xl px-4 py-8">
                 <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50">
@@ -83,43 +89,41 @@ export function CustomerOrderFormPage() {
                     This order page needs to be tied to a specific food truck account.
                 </p>
                 <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                    Please open this page using the link provided by the food truck, or
-                    log in as the truck owner to preview your order form.
+                    Please open this page using the link provided by the food truck, or log in
+                    as the truck owner to preview your order form.
                 </p>
             </div>
         );
     }
 
     const handleQuantityChange = (productId: string, value: string) => {
-        setQuantities((prev) => ({
-            ...prev,
-            [productId]: value,
-        }));
+        setQuantities((prev) => ({ ...prev, [productId]: value }));
+    };
+
+    const handleToggleOption = (
+        productId: string,
+        groupId: string,
+        optionId: string,
+        multiSelect: boolean
+    ) => {
+        // if your helper is pure:
+        setSelectedOptions((prev) =>
+            toggleOption(prev, productId, groupId, optionId, multiSelect)
+        );
+
+        // if your helper is a setter-wrapper, use:
+        // toggleOption(setSelectedOptions, productId, groupId, optionId, multiSelect);
     };
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
+        if (loading) return; // prevent double submits
+
         setStatus("");
         setLoading(true);
 
         try {
-            const items = products
-                .map((p) => {
-                    const raw = quantities[p.id];
-                    const qty = raw ? parseInt(raw, 10) : 0;
-                    if (!qty || Number.isNaN(qty) || qty <= 0) return null;
-
-                    return {
-                        productId: p.id,
-                        quantity: qty,
-                        unitPrice: p.price,
-                    };
-                })
-                .filter((x) => x !== null) as {
-                    productId: string;
-                    quantity: number;
-                    unitPrice: number;
-                }[];
+            const items = buildOrderItems(products, quantities, selectedOptions);
 
             if (items.length === 0) {
                 setStatus("Please select at least one item.");
@@ -146,11 +150,11 @@ export function CustomerOrderFormPage() {
 
             setStatus(`Thank you! Your order was placed. (id: ${orderId})`);
 
-            const resetQuantities: QuantityMap = {};
-            for (const p of products) {
-                resetQuantities[p.id] = "";
-            }
-            setQuantities(resetQuantities);
+            // reset order state
+            const { quantities: qReset, selectedOptions: oReset } = buildInitialOrderState(products);
+            setQuantities(qReset);
+            setSelectedOptions(oReset);
+
             setCustomerName("");
             setCustomerPhone("");
         } catch (err) {
@@ -176,113 +180,28 @@ export function CustomerOrderFormPage() {
                 onSubmit={handleSubmit}
                 className="space-y-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
             >
-                {/* Customer info */}
-                <section className="space-y-3">
-                    <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                        Your details
-                    </h2>
-                    <div className="grid gap-3 md:grid-cols-2">
-                        <div className="flex flex-col gap-1">
-                            <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
-                                Name (optional)
-                            </label>
-                            <input
-                                type="text"
-                                value={customerName}
-                                onChange={(e) => setCustomerName(e.target.value)}
-                                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-indigo-400"
-                                placeholder="Your name"
-                            />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                            <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
-                                Phone (optional)
-                            </label>
-                            <input
-                                type="tel"
-                                value={customerPhone}
-                                onChange={(e) => setCustomerPhone(e.target.value)}
-                                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-indigo-400"
-                                placeholder="555-123-4567"
-                            />
-                        </div>
-                    </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Your details help us contact you about your order. You can also leave this
-                        blank if you’re ordering in person.
-                    </p>
-                </section>
+                <CustomerDetailsSection
+                    customerName={customerName}
+                    customerPhone={customerPhone}
+                    onNameChange={setCustomerName}
+                    onPhoneChange={setCustomerPhone}
+                />
 
-                {/* Menu / items */}
                 <section className="space-y-3">
                     <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
                         Menu
                     </h2>
 
-                    {loading && products.length === 0 ? (
-                        <p className="text-sm text-slate-600 dark:text-slate-300">
-                            Loading menu...
-                        </p>
-                    ) : products.length === 0 ? (
-                        <p className="text-sm text-slate-500 dark:text-slate-400">
-                            No items are available right now.
-                        </p>
-                    ) : (
-                        <div className="overflow-hidden rounded-lg border border-slate-100 dark:border-slate-800">
-                            <table className="min-w-full divide-y divide-slate-100 text-sm dark:divide-slate-800">
-                                <thead className="bg-slate-50 dark:bg-slate-900/50">
-                                    <tr>
-                                        <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                            Item
-                                        </th>
-                                        <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                            Price
-                                        </th>
-                                        <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                            Qty
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
-                                    {products.map((p) => (
-                                        <tr key={p.id}>
-                                            <td className="px-3 py-2 align-top text-sm text-slate-800 dark:text-slate-100">
-                                                <div className="font-medium">{p.name}</div>
-                                                {p.category && (
-                                                    <div className="mt-0.5 text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                                        {p.category}
-                                                    </div>
-                                                )}
-                                                {p.description && (
-                                                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                                        {p.description}
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td className="px-3 py-2 text-right text-sm text-slate-800 dark:text-slate-100">
-                                                ${p.price.toFixed(2)}
-                                            </td>
-                                            <td className="px-3 py-2 text-right">
-                                                <input
-                                                    type="number"
-                                                    min={0}
-                                                    step={1}
-                                                    value={quantities[p.id] ?? ""}
-                                                    onChange={(e) =>
-                                                        handleQuantityChange(p.id, e.target.value)
-                                                    }
-                                                    className="w-20 rounded-lg border border-slate-300 bg-white px-2 py-1 text-right text-sm text-slate-900 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-indigo-400"
-                                                />
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
+                    <CustomerMenuTable
+                        products={products}
+                        loading={loading}
+                        quantities={quantities}
+                        selectedOptions={selectedOptions}
+                        onQuantityChange={handleQuantityChange}
+                        onToggleOption={handleToggleOption}
+                    />
                 </section>
 
-                {/* Submit + status */}
                 <div className="flex flex-col items-start gap-2 border-t border-slate-100 pt-4 dark:border-slate-800">
                     <button
                         type="submit"
