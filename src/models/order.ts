@@ -2,80 +2,90 @@
 import type { Timestamp } from "firebase/firestore";
 
 export type OrderChannel =
-  | "sms"
-  | "web_form"
-  | "qr_code"
-  | "in_person"
-  | "phone"
-  | "other";
+    | "sms"
+    | "web_form"
+    | "qr_code"
+    | "in_person"
+    | "phone"
+    | "other";
 
 export type OrderStatus =
-  | "pending"
-  | "accepted"
-  | "preparing"
-  | "ready"
-  | "completed"
-  | "canceled"
-  | "refunded";
+    | "pending"
+    | "accepted"
+    | "preparing"
+    | "ready"
+    | "completed"
+    | "canceled"
+    | "refunded";
 
 export type PaymentStatus = "unpaid" | "paid" | "refunded" | "partial";
 export type PaymentMethod = "cash" | "card" | "zelle" | "cashapp" | "venmo" | "other";
 
 export interface Order {
-  id: string;
-  accountId: string;
-  customerId?: string | null;
+    id: string;
+    accountId: string;
+    customerId?: string | null;
 
-  channel: OrderChannel;
-  status: OrderStatus;
+    channel: OrderChannel;
+    status: OrderStatus;
 
-  placedAt: Timestamp;
-  acceptedAt?: Timestamp | null;
-  readyAt?: Timestamp | null;
-  completedAt?: Timestamp | null;
-  canceledAt?: Timestamp | null;
+    placedAt: Timestamp;
+    acceptedAt?: Timestamp | null;
+    readyAt?: Timestamp | null;
+    completedAt?: Timestamp | null;
+    canceledAt?: Timestamp | null;
 
-  prepTimeEstimateSeconds?: number;
-  prepTimeActualSeconds?: number;
+    prepTimeEstimateSeconds?: number;
+    prepTimeActualSeconds?: number;
 
-  locationId?: string | null;
+    locationId?: string | null;
 
-  subtotalAmount: number;
-  taxAmount?: number;
-  discountAmount?: number;
-  totalAmount: number;
+    subtotalAmount: number;
+    taxAmount?: number;
+    discountAmount?: number;
+    totalAmount: number;
 
-  currency?: string | null;
-  paymentStatus: PaymentStatus;
-  paymentMethod?: PaymentMethod;
+    currency?: string | null;
+    paymentStatus: PaymentStatus;
+    paymentMethod?: PaymentMethod;
 
-  notes?: string | null;
+    notes?: string | null;
 
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
 }
 
 export type OrderLineItemStatus =
-  | "pending"
-  | "preparing"
-  | "ready"
-  | "served"
-  | "canceled";
+    | "pending"
+    | "preparing"
+    | "ready"
+    | "served"
+    | "canceled";
+
+export interface SelectedOption {
+    groupId: string;
+    groupName: string;
+    optionId: string;
+    optionLabel: string;
+    priceDelta?: number; // per unit
+}
 
 export interface OrderLineItem {
-  id: string;
-  orderId: string;
-  accountId: string;
-  productId: string;
+    id: string;
+    orderId: string;
+    accountId: string;
+    productId: string;
 
-  quantity: number;
-  unitPrice: number;
-  lineSubtotal: number;
+    quantity: number;
+    unitPrice: number;
+    lineSubtotal: number;
 
-  status: OrderLineItemStatus;
-  specialInstructions?: string | null;
+    selectedOptions?: SelectedOption[];
 
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+    status: OrderLineItemStatus;
+    specialInstructions?: string | null;
+
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
 }
 

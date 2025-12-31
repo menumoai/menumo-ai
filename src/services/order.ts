@@ -11,7 +11,7 @@ import {
     serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../firebaseClient";
-import type { Order, OrderLineItem } from "../models/order";
+import type { Order, OrderLineItem, SelectedOption } from "../models/order";
 
 const ordersCol = (accountId: string) =>
     collection(db, "accounts", accountId, "orders");
@@ -24,7 +24,13 @@ export async function createOrderWithLineItems(params: {
     accountId: string;
     customerId?: string;
     channel?: Order["channel"];
-    items: { productId: string; quantity: number; unitPrice: number; specialInstructions?: string }[];
+    items: {
+        productId: string;
+        quantity: number;
+        unitPrice: number; // base product price
+        specialInstructions?: string;
+        selectedOptions?: SelectedOption[];
+    }[];
 }) {
     const {
         accountId,
@@ -33,10 +39,15 @@ export async function createOrderWithLineItems(params: {
         items,
     } = params;
 
-    const subtotal = items.reduce(
-        (sum, item) => sum + item.quantity * item.unitPrice,
-        0
-    );
+    const subtotal = items.reduce((sum, item) => {
+        const optionDelta =
+            item.selectedOptions?.reduce(
+                (s, opt) => s + (opt.priceDelta ?? 0),
+                0
+            ) ?? 0;
+        const perUnitTotal = item.unitPrice + optionDelta;
+        return sum + perUnitTotal * item.quantity;
+    }, 0);
 
     const orderRef = await addDoc(ordersCol(accountId), {
         id: "", // we’ll override with ref.id using merge

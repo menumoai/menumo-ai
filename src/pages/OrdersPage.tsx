@@ -1,3 +1,4 @@
+// src/pages/OrdersPage.tsx
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
@@ -7,6 +8,7 @@ import { listProducts } from "../services/product";
 
 import type { Order } from "../models/order";
 import type { Product } from "../models/product";
+import type { SelectedOption } from "../models/order";
 import { useAccount } from "../account/AccountContext";
 
 type OrderStatus = Order["status"];
@@ -15,12 +17,22 @@ interface QuantityMap {
     [productId: string]: string;
 }
 
+// productId -> groupId -> optionId[]
+interface SelectedOptionsMap {
+    [productId: string]: {
+        [groupId: string]: string[];
+    };
+}
+
 export function OrdersPage() {
     const { accountId, loading: accountLoading } = useAccount();
 
     const [orders, setOrders] = useState<Order[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
     const [quantities, setQuantities] = useState<QuantityMap>({});
+    const [selectedOptions, setSelectedOptions] = useState<SelectedOptionsMap>(
+        {}
+    );
 
     const [loadingOrders, setLoadingOrders] = useState(false);
     const [creatingOrder, setCreatingOrder] = useState(false);
@@ -42,11 +54,20 @@ export function OrdersPage() {
             setOrders(ords);
             setProducts(prods);
 
-            const init: QuantityMap = {};
+            const initQuantities: QuantityMap = {};
+            const initOptions: SelectedOptionsMap = {};
+
             for (const p of prods) {
-                init[p.id] = "";
+                initQuantities[p.id] = "";
+                if (p.optionGroups && p.optionGroups.length > 0) {
+                    initOptions[p.id] = {};
+                    for (const g of p.optionGroups) {
+                        initOptions[p.id][g.id] = [];
+                    }
+                }
             }
-            setQuantities(init);
+            setQuantities(initQuantities);
+            setSelectedOptions(initOptions);
 
             setStatusMessage("Orders + products loaded ✅");
         } catch (err) {
@@ -69,6 +90,37 @@ export function OrdersPage() {
         }));
     };
 
+    const handleToggleOption = (
+        productId: string,
+        groupId: string,
+        optionId: string,
+        multiSelect: boolean
+    ) => {
+        setSelectedOptions((prev) => {
+            const productOpts = prev[productId] ?? {};
+            const groupOpts = productOpts[groupId] ?? [];
+
+            let nextGroupOpts: string[];
+            if (multiSelect) {
+                if (groupOpts.includes(optionId)) {
+                    nextGroupOpts = groupOpts.filter((id) => id !== optionId);
+                } else {
+                    nextGroupOpts = [...groupOpts, optionId];
+                }
+            } else {
+                nextGroupOpts = [optionId];
+            }
+
+            return {
+                ...prev,
+                [productId]: {
+                    ...productOpts,
+                    [groupId]: nextGroupOpts,
+                },
+            };
+        });
+    };
+
     const handleCreateOrder = async (e: FormEvent) => {
         e.preventDefault();
         if (!accountId) return;
@@ -83,16 +135,38 @@ export function OrdersPage() {
                     const qty = raw ? parseInt(raw, 10) : 0;
                     if (!qty || Number.isNaN(qty) || qty <= 0) return null;
 
+                    const productSelections = selectedOptions[p.id] ?? {};
+                    const selectedOptionsForItem: SelectedOption[] = [];
+
+                    if (p.optionGroups) {
+                        for (const group of p.optionGroups) {
+                            const chosenIds = productSelections[group.id] ?? [];
+                            for (const opt of group.options) {
+                                if (chosenIds.includes(opt.id)) {
+                                    selectedOptionsForItem.push({
+                                        groupId: group.id,
+                                        groupName: group.name,
+                                        optionId: opt.id,
+                                        optionLabel: opt.label,
+                                        priceDelta: opt.priceDelta ?? 0,
+                                    });
+                                }
+                            }
+                        }
+                    }
+
                     return {
                         productId: p.id,
                         quantity: qty,
                         unitPrice: p.price,
+                        selectedOptions: selectedOptionsForItem,
                     };
                 })
                 .filter((x) => x !== null) as {
                     productId: string;
                     quantity: number;
                     unitPrice: number;
+                    selectedOptions?: SelectedOption[];
                 }[];
 
             if (items.length === 0) {
@@ -109,11 +183,20 @@ export function OrdersPage() {
 
             setStatusMessage(`Order created ✅ (id: ${orderId})`);
 
-            const reset: QuantityMap = {};
+            const resetQuantities: QuantityMap = {};
+            const resetOptions: SelectedOptionsMap = {};
+
             for (const p of products) {
-                reset[p.id] = "";
+                resetQuantities[p.id] = "";
+                if (p.optionGroups && p.optionGroups.length > 0) {
+                    resetOptions[p.id] = {};
+                    for (const g of p.optionGroups) {
+                        resetOptions[p.id][g.id] = [];
+                    }
+                }
             }
-            setQuantities(reset);
+            setQuantities(resetQuantities);
+            setSelectedOptions(resetOptions);
 
             await loadData(accountId);
         } catch (err) {
@@ -236,6 +319,90 @@ export function OrdersPage() {
                                                                 <p className="text-xs text-slate-500 dark:text-slate-400">
                                                                     {p.description}
                                                                 </p>
+                                                            )}
+
+                                                            {/* 🔥 staff options */}
+                                                            {p.optionGroups && p.optionGroups.length > 0 && (
+                                                                <div className="mt-2 space-y-2">
+                                                                    {p.optionGroups.map((group) => {
+                                                                        const multi = !!group.multiSelect;
+                                                                        const selectedForGroup =
+                                                                            selectedOptions[p.id]?.[group.id] ?? [];
+
+                                                                        return (
+                                                                            <div
+                                                                                key={group.id}
+                                                                                className="border-t border-slate-100 pt-2 dark:border-slate-800"
+                                                                            >
+                                                                                <div className="flex items-center justify-between">
+                                                                                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                                                                                        {group.name}
+                                                                                        {group.required && (
+                                                                                            <span className="ml-1 text-[10px] font-normal uppercase text-red-500">
+                                                                                                required
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </span>
+                                                                                    {group.description && (
+                                                                                        <span className="ml-2 text-[10px] text-slate-500 dark:text-slate-400">
+                                                                                            {group.description}
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
+
+                                                                                <div className="mt-1 flex flex-wrap gap-2">
+                                                                                    {group.options.map((opt) => {
+                                                                                        const checked =
+                                                                                            selectedForGroup.includes(
+                                                                                                opt.id
+                                                                                            );
+                                                                                        const inputType = multi
+                                                                                            ? "checkbox"
+                                                                                            : "radio";
+
+                                                                                        return (
+                                                                                            <label
+                                                                                                key={opt.id}
+                                                                                                className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] ${checked
+                                                                                                    ? "border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-900/40 dark:text-indigo-200"
+                                                                                                    : "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                                                                                                    }`}
+                                                                                            >
+                                                                                                <input
+                                                                                                    type={inputType}
+                                                                                                    className="h-3 w-3"
+                                                                                                    name={`${p.id}-${group.id}`}
+                                                                                                    checked={checked}
+                                                                                                    onChange={() =>
+                                                                                                        handleToggleOption(
+                                                                                                            p.id,
+                                                                                                            group.id,
+                                                                                                            opt.id,
+                                                                                                            multi
+                                                                                                        )
+                                                                                                    }
+                                                                                                />
+                                                                                                <span>{opt.label}</span>
+                                                                                                {opt.priceDelta &&
+                                                                                                    opt.priceDelta !== 0 && (
+                                                                                                        <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                                                                                                            {opt.priceDelta > 0
+                                                                                                                ? "+"
+                                                                                                                : "-"}
+                                                                                                            $
+                                                                                                            {Math.abs(
+                                                                                                                opt.priceDelta
+                                                                                                            ).toFixed(2)}
+                                                                                                        </span>
+                                                                                                    )}
+                                                                                            </label>
+                                                                                        );
+                                                                                    })}
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
                                                             )}
                                                         </div>
                                                     </td>
