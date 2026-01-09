@@ -9,7 +9,7 @@ import { CustomerOrderFormPage } from "../pages/CustomerOrderFormPage";
 import { DashboardPage } from "../pages/DashboardPage";
 import { OrderDetailPage } from "../pages/OrderDetailPage";
 import { BrowseTrucksPage } from "../pages/BrowseTrucksPage";
-
+import ExpensesPage from "../pages/ExpensesPage";
 import { RequireAuth, HomeRouter, BusinessRoute } from "./RouteGuards";
 
 export function AppRoutes() {
@@ -29,6 +29,14 @@ export function AppRoutes() {
                 element={
                     <BusinessRoute>
                         <MenuPage />
+                    </BusinessRoute>
+                }
+            />
+            <Route
+                path="/expenses"
+                element={
+                    <BusinessRoute>
+                        <ExpensesPage />
                     </BusinessRoute>
                 }
             />

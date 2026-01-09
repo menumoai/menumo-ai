@@ -67,7 +67,17 @@ export function MainHeader() {
                             >
                                 Dashboard
                             </NavLink>
-
+                            <NavLink
+                                to="/expenses"
+                                className={({ isActive }) =>
+                                    navLinkClass(
+                                        isActive,
+                                        "font-semibold text-indigo-600 dark:text-indigo-400"
+                                    )
+                                }
+                            >
+                                Expenses
+                            </NavLink>
                             <NavLink
                                 to="/dev"
                                 className={({ isActive }) =>
