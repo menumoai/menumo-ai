@@ -7,6 +7,7 @@ import {
     signInWithEmailAndPassword,
     signInWithPopup,
 } from "firebase/auth";
+import { Truck, Sparkles, CheckCircle2 } from "lucide-react";
 
 import { auth, googleProvider } from "../firebaseClient";
 import { createBusinessAccount } from "../services/accounts";
@@ -15,7 +16,6 @@ import { getUserProfile, upsertUserProfile } from "../services/profile";
 
 import type { AppUserKind } from "../models/profile";
 
-import { AuthCard } from "../components/auth/AuthCard";
 import { UserKindSelector } from "../components/auth/UserKindSelector";
 import { EmailPasswordFields } from "../components/auth/EmailPasswordFields";
 import { GoogleSignInButton } from "../components/auth/GoogleSignInButton";
@@ -29,7 +29,6 @@ export function AuthPage() {
     const [status, setStatus] = useState("");
     const [loading, setLoading] = useState(false);
 
-    // "business_owner" by default so current behavior mostly stays the same
     const [userKind, setUserKind] = useState<AppUserKind>("business_owner");
 
     const navigate = useNavigate();
@@ -51,7 +50,6 @@ export function AuthPage() {
             const existingProfile = await getUserProfile(uid);
 
             if (!existingProfile) {
-                // First-time Google user
                 if (userKind === "business_owner") {
                     const accountId = uid;
 
@@ -78,7 +76,6 @@ export function AuthPage() {
                         primaryAccountId: accountId,
                     });
                 } else {
-                    // Customer Google signup → no business account
                     await upsertUserProfile({
                         uid,
                         kind: "customer",
@@ -93,7 +90,6 @@ export function AuthPage() {
                     navigate("/menu");
                 }
             } else {
-                // Existing profile
                 setStatus("Google sign-in successful ✅");
                 if (existingProfile.kind === "customer") {
                     navigate("/browse-trucks");
@@ -135,9 +131,7 @@ export function AuthPage() {
 
                     await createBusinessAccount({
                         id: accountId,
-                        name: firstName
-                            ? `${firstName}'s Truck`
-                            : "Demo Taco Truck",
+                        name: firstName ? `${firstName}'s Truck` : "Demo Taco Truck",
                         legalName: firstName
                             ? `${firstName} Demo LLC`
                             : "Demo Taco Truck LLC",
@@ -161,7 +155,6 @@ export function AuthPage() {
                     setStatus("Signup successful ✅");
                     navigate("/menu");
                 } else {
-                    // Customer signup → no business account
                     await upsertUserProfile({
                         uid,
                         kind: "customer",
@@ -172,11 +165,10 @@ export function AuthPage() {
                     navigate("/browse-trucks");
                 }
             } else {
-                // LOGIN
                 const cred = await signInWithEmailAndPassword(auth, email, password);
                 const user = cred.user;
 
-                let destination: string = "/menu";
+                let destination = "/menu";
                 try {
                     const profile = await getUserProfile(user.uid);
                     if (profile?.kind === "customer") {
@@ -204,77 +196,183 @@ export function AuthPage() {
         setStatus("");
     };
 
-    const title = mode === "signup" ? "Sign up" : "Log in";
+    const title = mode === "signup" ? "Create your account" : "Welcome back";
+    const subtitle =
+        mode === "signup"
+            ? "Start using Menumo as a food truck owner or customer."
+            : "Log in to manage your truck or place orders.";
 
     return (
-        <AuthCard
-            title={title}
-            description={
-                <>
-                    Use Menumo as a{" "}
-                    <span className="font-medium">customer</span> to browse trucks
-                    and place orders, or as a{" "}
-                    <span className="font-medium">food truck owner</span> to manage
-                    your own menu and orders.
-                </>
-            }
-        >
-            <form onSubmit={handleSubmit} className="mt-4 space-y-3">
-                {mode === "signup" && (
-                    <>
-                        <div className="space-y-1">
-                            <label className="block text-xs font-medium text-slate-600 dark:text-slate-300">
-                                First name
-                            </label>
-                            <input
-                                type="text"
-                                placeholder="First name"
-                                value={firstName}
-                                onChange={(e) => setFirstName(e.target.value)}
-                                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none ring-indigo-500/0 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-1 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50"
-                            />
+        <div className="min-h-screen bg-[#FBF8F3]">
+            <div className="mx-auto grid min-h-screen max-w-7xl lg:grid-cols-2">
+                {/* Left Side */}
+                <div className="flex items-center px-6 py-10 sm:px-10 lg:px-14">
+                    <div className="w-full max-w-xl">
+                        <div className="mb-8 flex items-center gap-3">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-600 to-teal-700 shadow-lg">
+                                <Truck className="h-6 w-6 text-white" />
+                            </div>
+                            <div>
+                                <h1
+                                    className="text-3xl font-bold text-gray-900"
+                                    style={{ fontFamily: "Poppins, sans-serif" }}
+                                >
+                                    Menumo
+                                </h1>
+                                <p className="text-sm text-gray-500">
+                                    Food truck operations made simple
+                                </p>
+                            </div>
                         </div>
 
-                        <UserKindSelector value={userKind} onChange={setUserKind} />
-                    </>
-                )}
+                        <div className="mb-8">
+                            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-teal-50 px-3 py-1 text-sm font-medium text-teal-700">
+                                <Sparkles className="h-4 w-4" />
+                                Smart ordering + menu management
+                            </div>
 
-                <EmailPasswordFields
-                    email={email}
-                    password={password}
-                    mode={mode}
-                    onEmailChange={setEmail}
-                    onPasswordChange={setPassword}
-                />
+                            <h2
+                                className="mb-3 text-4xl font-bold leading-tight text-gray-900"
+                                style={{ fontFamily: "Poppins, sans-serif" }}
+                            >
+                                {title}
+                            </h2>
 
-                <button
-                    type="submit"
-                    disabled={loading}
-                    className="mt-1 inline-flex w-full items-center justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400 dark:bg-indigo-500 dark:hover:bg-indigo-400"
-                >
-                    {loading
-                        ? "Working..."
-                        : mode === "signup"
-                            ? "Sign up"
-                            : "Log in"}
-                </button>
-            </form>
+                            <p className="max-w-lg text-base text-gray-600">{subtitle}</p>
+                        </div>
 
-            <div className="mt-4">
-                <GoogleSignInButton onClick={handleGoogleSignIn} disabled={loading} />
+                        <div className="space-y-4">
+                            <div className="flex gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+                                <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-green-100">
+                                    <CheckCircle2 className="h-4 w-4 text-green-700" />
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold text-gray-900">
+                                        For food truck owners
+                                    </h3>
+                                    <p className="mt-1 text-sm text-gray-600">
+                                        Manage your menu, track orders, and monitor revenue and expenses.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+                                <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
+                                    <CheckCircle2 className="h-4 w-4 text-blue-700" />
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold text-gray-900">
+                                        For customers
+                                    </h3>
+                                    <p className="mt-1 text-sm text-gray-600">
+                                        Browse trucks, explore menus, and place orders quickly from one place.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+                                <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-purple-100">
+                                    <CheckCircle2 className="h-4 w-4 text-purple-700" />
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold text-gray-900">
+                                        Built to scale with you
+                                    </h3>
+                                    <p className="mt-1 text-sm text-gray-600">
+                                        Start simple, then grow into analytics, staff workflows, and smarter operations.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Right Side */}
+                <div className="flex items-center justify-center px-6 py-10 sm:px-10 lg:px-14">
+                    <div className="w-full max-w-md rounded-3xl border border-gray-100 bg-white p-8 shadow-xl">
+                        <div className="mb-6">
+                            <div className="mb-2 text-sm font-medium uppercase tracking-wide text-teal-700">
+                                {mode === "signup" ? "Get Started" : "Sign In"}
+                            </div>
+                            <h3
+                                className="text-2xl font-bold text-gray-900"
+                                style={{ fontFamily: "Poppins, sans-serif" }}
+                            >
+                                {title}
+                            </h3>
+                            <p className="mt-1 text-sm text-gray-500">{subtitle}</p>
+                        </div>
+
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            {mode === "signup" && (
+                                <>
+                                    <div className="space-y-1">
+                                        <label className="block text-xs font-medium text-gray-600">
+                                            First name
+                                        </label>
+                                        <input
+                                            type="text"
+                                            placeholder="First name"
+                                            value={firstName}
+                                            onChange={(e) => setFirstName(e.target.value)}
+                                            className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 shadow-sm outline-none placeholder:text-gray-400 focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                                        />
+                                    </div>
+
+                                    <UserKindSelector value={userKind} onChange={setUserKind} />
+                                </>
+                            )}
+
+                            <EmailPasswordFields
+                                email={email}
+                                password={password}
+                                mode={mode}
+                                onEmailChange={setEmail}
+                                onPasswordChange={setPassword}
+                            />
+
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-[#5B9A8B] to-[#4A7C70] px-4 py-2.5 text-sm font-medium text-white shadow-lg transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {loading
+                                    ? "Working..."
+                                    : mode === "signup"
+                                        ? "Create account"
+                                        : "Log in"}
+                            </button>
+                        </form>
+
+                        <div className="my-5 flex items-center gap-3">
+                            <div className="h-px flex-1 bg-gray-200" />
+                            <span className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                                Or continue with
+                            </span>
+                            <div className="h-px flex-1 bg-gray-200" />
+                        </div>
+
+                        <GoogleSignInButton
+                            onClick={handleGoogleSignIn}
+                            disabled={loading}
+                        />
+
+                        <button
+                            type="button"
+                            onClick={toggleMode}
+                            className="mt-4 w-full text-center text-sm font-medium text-teal-700 hover:text-teal-800"
+                        >
+                            {mode === "signup"
+                                ? "Already have an account? Log in"
+                                : "Need an account? Sign up"}
+                        </button>
+
+                        <div className="mt-4">
+                            <AuthStatusText status={status} />
+                        </div>
+                    </div>
+                </div>
             </div>
-
-            <button
-                type="button"
-                onClick={toggleMode}
-                className="mt-3 w-full text-center text-xs font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
-            >
-                {mode === "signup"
-                    ? "Already have an account? Log in"
-                    : "Need an account? Sign up"}
-            </button>
-
-            <AuthStatusText status={status} />
-        </AuthCard>
+        </div>
     );
 }

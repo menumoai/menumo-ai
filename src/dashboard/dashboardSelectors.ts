@@ -50,3 +50,43 @@ export function selectRecentOrders(orders: Order[], limit = 10): Order[] {
         .sort((a, b) => toDate(b.placedAt).getTime() - toDate(a.placedAt).getTime())
         .slice(0, limit);
 }
+
+export type RevenueTrendPoint = {
+    day: string;
+    revenue: number;
+    orders: number;
+};
+
+export function selectWeeklyRevenueTrend(
+    orders: Order[],
+    now = new Date(),
+): RevenueTrendPoint[] {
+    const end = startOfDay(now);
+    const days: RevenueTrendPoint[] = [];
+
+    for (let i = 6; i >= 0; i--) {
+        const d = new Date(end);
+        d.setDate(end.getDate() - i);
+
+        days.push({
+            day: d.toLocaleDateString("en-US", { weekday: "short" }),
+            revenue: 0,
+            orders: 0,
+        });
+    }
+
+    for (const order of orders) {
+        const placed = startOfDay(toDate(order.placedAt));
+        const diffDays = Math.floor(
+            (end.getTime() - placed.getTime()) / (1000 * 60 * 60 * 24),
+        );
+
+        if (diffDays >= 0 && diffDays < 7) {
+            const index = 6 - diffDays;
+            days[index].revenue += order.totalAmount ?? 0;
+            days[index].orders += 1;
+        }
+    }
+
+    return days;
+}
