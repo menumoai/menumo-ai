@@ -1,24 +1,38 @@
+import { DollarSign } from "lucide-react";
 import type { Order } from "../../models/order";
 
 export function OrderTotals(props: { order: Order }) {
     const { order } = props;
 
     return (
-        <section className="mt-4 border-t border-slate-100 pt-4 dark:border-slate-800">
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
-                Totals
-            </h2>
+        <section className="mt-6 border-t border-gray-100 pt-5">
+            <div className="mb-3 flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-green-600" />
+                <h2
+                    className="text-lg font-semibold text-gray-900"
+                    style={{ fontFamily: "Poppins, sans-serif" }}
+                >
+                    Totals
+                </h2>
+            </div>
 
-            <dl className="mt-2 space-y-1 text-sm text-slate-800 dark:text-slate-100">
-                <div className="flex items-center justify-between">
-                    <dt className="text-slate-600 dark:text-slate-300">Subtotal</dt>
-                    <dd className="font-medium">${order.subtotalAmount.toFixed(2)}</dd>
-                </div>
-                <div className="flex items-center justify-between">
-                    <dt className="text-slate-600 dark:text-slate-300">Total</dt>
-                    <dd className="font-semibold">${order.totalAmount.toFixed(2)}</dd>
-                </div>
-            </dl>
+            <div className="rounded-2xl bg-gray-50 p-4">
+                <dl className="space-y-2 text-sm">
+                    <div className="flex items-center justify-between">
+                        <dt className="text-gray-600">Subtotal</dt>
+                        <dd className="font-medium text-gray-900">
+                            ${order.subtotalAmount.toFixed(2)}
+                        </dd>
+                    </div>
+
+                    <div className="flex items-center justify-between border-t border-gray-200 pt-2">
+                        <dt className="font-medium text-gray-700">Total</dt>
+                        <dd className="text-lg font-bold text-gray-900">
+                            ${order.totalAmount.toFixed(2)}
+                        </dd>
+                    </div>
+                </dl>
+            </div>
         </section>
     );
 }

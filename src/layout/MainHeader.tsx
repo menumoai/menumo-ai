@@ -96,7 +96,7 @@ export function MainHeader() {
 
                     {/* Customer entry point – always visible */}
                     <NavLink
-                        to="/browse-trucks"
+                        to="/locations"
                         className={({ isActive }) =>
                             [
                                 "transition-colors",
