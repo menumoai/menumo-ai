@@ -1,15 +1,14 @@
 import { Routes, Route } from "react-router-dom";
-
-import { DevConsole } from "../pages/DevConsole";
+import { LandingPage } from "../pages/LandingPage";
+import { AuthPage } from "../pages/AuthPage";
 import { MenuPage } from "../pages/MenuPage";
 import { OrdersPage } from "../pages/OrdersPage";
 import { CreateOrderPage } from "../pages/CreateOrderPage";
-import { AuthPage } from "../pages/AuthPage";
-import { CustomerOrderFormPage } from "../pages/CustomerOrderFormPage";
 import { DashboardPage } from "../pages/DashboardPage";
 import { OrderDetailPage } from "../pages/OrderDetailPage";
 import { BrowseTrucksPage } from "../pages/BrowseTrucksPage";
 import ExpensesPage from "../pages/ExpensesPage";
+import { DevConsole } from "../pages/DevConsole";
 import { RequireAuth, HomeRouter, BusinessRoute } from "./RouteGuards";
 
 export function AppRoutes() {
@@ -17,6 +16,17 @@ export function AppRoutes() {
         <Routes>
             <Route
                 path="/"
+                element={
+                    <RequireAuth>
+                        <HomeRouter />
+                    </RequireAuth>
+                }
+            />
+
+            <Route path="/landing" element={<LandingPage />} />
+
+            <Route
+                path="/home"
                 element={
                     <RequireAuth>
                         <HomeRouter />
@@ -82,8 +92,7 @@ export function AppRoutes() {
             />
 
             <Route path="/auth" element={<AuthPage />} />
-            <Route path="/browse-trucks" element={<BrowseTrucksPage />} />
-            <Route path="/order-form" element={<CustomerOrderFormPage />} />
+            <Route path="/locations" element={<BrowseTrucksPage />} />
         </Routes>
     );
 }

@@ -1,14 +1,30 @@
 // src/layout/AppShell.tsx
 import type { ReactNode } from "react";
-import { MainHeader } from "./MainHeader";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../auth/AuthContext";
+import { DashboardLayout } from "./DashboardLayout";
+
+const PUBLIC_PATHS = ["/", "/auth"];
 
 export function AppShell({ children }: { children: ReactNode }) {
+    const location = useLocation();
+    const navigate = useNavigate();
+    const { logout } = useAuth();
+
+    const isPublicPage = PUBLIC_PATHS.includes(location.pathname);
+
+    const handleNavigateBack = async () => {
+        await logout();
+        navigate("/auth");
+    };
+
+    if (isPublicPage) {
+        return <>{children}</>;
+    }
+
     return (
-        <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50">
-            <MainHeader />
-            <main className="mx-auto max-w-6xl px-4 py-4 sm:px-6">
-                {children}
-            </main>
-        </div>
+        <DashboardLayout onNavigateBack={handleNavigateBack}>
+            {children}
+        </DashboardLayout>
     );
 }

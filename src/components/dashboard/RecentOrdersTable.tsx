@@ -9,55 +9,69 @@ export function RecentOrdersTable({
     loading: boolean;
 }) {
     if (loading && orders.length === 0) {
-        return <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Loading...</p>;
+        return <p className="text-sm text-gray-500">Loading...</p>;
     }
 
     if (orders.length === 0) {
         return (
-            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+            <p className="text-sm text-gray-500">
                 No orders yet. Your first ticket will show up here.
             </p>
         );
     }
 
     return (
-        <div className="mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
             <table className="min-w-full text-sm">
-                <thead className="bg-slate-50 dark:bg-slate-950/60">
+                <thead className="bg-gray-50">
                     <tr>
-                        <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                        <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                             Order ID
                         </th>
-                        <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                        <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                             Status
                         </th>
-                        <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                        <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                             Channel
                         </th>
-                        <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                        <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
                             Total
                         </th>
-                        <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            Placed At
+                        <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            Placed
                         </th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+
+                <tbody className="divide-y divide-gray-100">
                     {orders.map((o) => {
                         const placed = toDate(o.placedAt);
                         const totalAmount = o.totalAmount ?? 0;
 
                         return (
-                            <tr key={o.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/70">
-                                <td className="px-4 py-2 align-top">
-                                    <span className="font-mono text-xs text-slate-800 dark:text-slate-100">{o.id}</span>
+                            <tr
+                                key={o.id}
+                                className="transition-colors hover:bg-gray-50"
+                            >
+                                <td className="px-5 py-3">
+                                    <span className="font-mono text-xs text-gray-700">
+                                        {o.id.slice(0, 8)}
+                                    </span>
                                 </td>
-                                <td className="px-4 py-2 align-top capitalize text-slate-700 dark:text-slate-200">{o.status}</td>
-                                <td className="px-4 py-2 align-top text-slate-700 dark:text-slate-200">{o.channel}</td>
-                                <td className="px-4 py-2 text-right align-top font-semibold text-slate-900 dark:text-slate-50">
+
+                                <td className="px-5 py-3">
+                                    <span className="inline-flex rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 capitalize">
+                                        {o.status}
+                                    </span>
+                                </td>
+
+                                <td className="px-5 py-3 text-gray-700">{o.channel}</td>
+
+                                <td className="px-5 py-3 text-right font-semibold text-gray-900">
                                     ${totalAmount.toFixed(2)}
                                 </td>
-                                <td className="px-4 py-2 align-top text-slate-600 dark:text-slate-300">
+
+                                <td className="px-5 py-3 text-gray-500">
                                     {placed.toLocaleString()}
                                 </td>
                             </tr>
