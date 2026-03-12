@@ -14,16 +14,9 @@ import { RequireAuth, HomeRouter, BusinessRoute } from "./RouteGuards";
 export function AppRoutes() {
     return (
         <Routes>
-            <Route
-                path="/"
-                element={
-                    <RequireAuth>
-                        <HomeRouter />
-                    </RequireAuth>
-                }
-            />
-
-            <Route path="/landing" element={<LandingPage />} />
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/auth" element={<AuthPage />} />
+            <Route path="/locations" element={<BrowseTrucksPage />} />
 
             <Route
                 path="/home"
@@ -90,9 +83,6 @@ export function AppRoutes() {
                     </BusinessRoute>
                 }
             />
-
-            <Route path="/auth" element={<AuthPage />} />
-            <Route path="/locations" element={<BrowseTrucksPage />} />
         </Routes>
     );
 }
