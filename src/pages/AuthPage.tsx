@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     createUserWithEmailAndPassword,
     signInWithEmailAndPassword,
     signInWithPopup,
+    signInWithRedirect,
+    getRedirectResult,
 } from "firebase/auth";
 import { Truck, Sparkles, CheckCircle2 } from "lucide-react";
 
@@ -12,10 +14,55 @@ import { auth, googleProvider } from "../firebaseClient";
 import { createBusinessAccount } from "../services/accounts";
 import { createAccountUser } from "../services/users";
 import { getUserProfile, upsertUserProfile } from "../services/profile";
+import { useAuth } from "../auth/AuthContext";
+import { useAccount } from "../account/AccountContext";
 
 import { EmailPasswordFields } from "../components/auth/EmailPasswordFields";
 import { GoogleSignInButton } from "../components/auth/GoogleSignInButton";
 import { AuthStatusText } from "../components/auth/AuthStatusText";
+
+function isMobileDevice() {
+    if (typeof navigator === "undefined") return false;
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(
+        navigator.userAgent
+    );
+}
+
+async function ensureBusinessOwnerProfile(user: {
+    uid: string;
+    displayName: string | null;
+    email: string | null;
+}) {
+    const uid = user.uid;
+    const existingProfile = await getUserProfile(uid);
+
+    if (existingProfile) {
+        return;
+    }
+
+    const accountId = uid;
+
+    await createBusinessAccount({
+        id: accountId,
+        name: user.displayName ? `${user.displayName}'s Truck` : "Demo Taco Truck",
+        legalName: "Demo Taco Truck LLC",
+        email: user.email ?? undefined,
+    });
+
+    await createAccountUser({
+        accountId,
+        id: uid,
+        email: user.email ?? "",
+        firstName: user.displayName ?? "Owner",
+        role: "owner",
+    });
+
+    await upsertUserProfile({
+        uid,
+        kind: "business_owner",
+        primaryAccountId: accountId,
+    });
+}
 
 export function AuthPage() {
     const [mode, setMode] = useState<"login" | "signup">("signup");
@@ -24,51 +71,76 @@ export function AuthPage() {
     const [firstName, setFirstName] = useState("");
     const [status, setStatus] = useState("");
     const [loading, setLoading] = useState(false);
+    const [redirectLoading, setRedirectLoading] = useState(true);
 
     const navigate = useNavigate();
+    const { user, loading: authLoading } = useAuth();
+    const { account, loading: accountLoading } = useAccount();
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const completeRedirectSignIn = async () => {
+            try {
+                const result = await getRedirectResult(auth);
+
+                if (!isMounted) return;
+
+                if (!result?.user) {
+                    setRedirectLoading(false);
+                    return;
+                }
+
+                await ensureBusinessOwnerProfile(result.user);
+
+                if (!isMounted) return;
+
+                setStatus("Google sign-in successful ✅");
+                setRedirectLoading(false);
+                navigate("/dashboard", { replace: true });
+            } catch (err: any) {
+                console.error("Redirect sign-in error", err);
+
+                if (!isMounted) return;
+                setStatus(err?.message ?? "Google redirect sign-in error");
+                setRedirectLoading(false);
+            }
+        };
+
+        completeRedirectSignIn();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [navigate]);
+
+    useEffect(() => {
+        if (authLoading || accountLoading) return;
+
+        if (user && account) {
+            navigate("/dashboard", { replace: true });
+        }
+    }, [user, account, authLoading, accountLoading, navigate]);
 
     const handleGoogleSignIn = async () => {
         setStatus("");
         setLoading(true);
 
         try {
-            const cred = await signInWithPopup(auth, googleProvider);
-            const user = cred.user;
+            if (isMobileDevice()) {
+                await signInWithRedirect(auth, googleProvider);
+                return;
+            }
 
-            if (!user) {
+            const cred = await signInWithPopup(auth, googleProvider);
+            const popupUser = cred.user;
+
+            if (!popupUser) {
                 setStatus("No user returned from Google.");
                 return;
             }
 
-            const uid = user.uid;
-            const existingProfile = await getUserProfile(uid);
-
-            if (!existingProfile) {
-                const accountId = uid;
-
-                await createBusinessAccount({
-                    id: accountId,
-                    name: user.displayName
-                        ? `${user.displayName}'s Truck`
-                        : "Demo Taco Truck",
-                    legalName: "Demo Taco Truck LLC",
-                    email: user.email ?? undefined,
-                });
-
-                await createAccountUser({
-                    accountId,
-                    id: uid,
-                    email: user.email ?? "",
-                    firstName: user.displayName ?? "Owner",
-                    role: "owner",
-                });
-
-                await upsertUserProfile({
-                    uid,
-                    kind: "business_owner",
-                    primaryAccountId: accountId,
-                });
-            }
+            await ensureBusinessOwnerProfile(popupUser);
 
             setStatus("Google sign-in successful ✅");
             navigate("/dashboard", { replace: true });
@@ -99,8 +171,8 @@ export function AuthPage() {
                     password
                 );
 
-                const user = cred.user;
-                const uid = user.uid;
+                const createdUser = cred.user;
+                const uid = createdUser.uid;
                 const accountId = uid;
 
                 await createBusinessAccount({
@@ -149,6 +221,16 @@ export function AuthPage() {
         mode === "signup"
             ? "Start using Menumo to manage your food truck."
             : "Log in to manage your truck.";
+
+    if (redirectLoading || authLoading || accountLoading) {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-[#FBF8F3] px-6">
+                <div className="rounded-2xl border border-gray-100 bg-white px-6 py-5 shadow-sm">
+                    <p className="text-sm text-gray-600">Checking sign-in…</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-[#FBF8F3]">
