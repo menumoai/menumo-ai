@@ -9,24 +9,21 @@ import { OrderDetailPage } from "../pages/OrderDetailPage";
 import { BrowseTrucksPage } from "../pages/BrowseTrucksPage";
 import ExpensesPage from "../pages/ExpensesPage";
 import { DevConsole } from "../pages/DevConsole";
-import { RequireAuth, HomeRouter, BusinessRoute } from "./RouteGuards";
+import { BusinessRoute } from "./RouteGuards";
 
 export function AppRoutes() {
     return (
         <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/auth" element={<AuthPage />} />
-            <Route path="/locations" element={<BrowseTrucksPage />} />
-
             <Route
-                path="/home"
+                path="/locations"
                 element={
-                    <RequireAuth>
-                        <HomeRouter />
-                    </RequireAuth>
+                    <BusinessRoute>
+                        <BrowseTrucksPage />
+                    </BusinessRoute>
                 }
             />
-
             <Route
                 path="/menu"
                 element={
@@ -83,6 +80,7 @@ export function AppRoutes() {
                     </BusinessRoute>
                 }
             />
+
             <Route path="*" element={<LandingPage />} />
         </Routes>
     );

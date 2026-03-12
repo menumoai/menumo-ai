@@ -35,24 +35,10 @@ export function RequireBusiness({ children }: { children: ReactNode }) {
     }
 
     if (!account) {
-        return <Navigate to="/home" replace state={{ from: location }} />;
+        return <Navigate to="/auth" replace state={{ from: location }} />;
     }
 
     return <>{children}</>;
-}
-
-export function HomeRouter() {
-    const { loading } = useAccount();
-
-    if (loading) {
-        return (
-            <p className="px-6 py-6 text-sm text-slate-600">
-                Loading account…
-            </p>
-        );
-    }
-
-    return <Navigate to="/dashboard" replace />;
 }
 
 export function BusinessRoute({ children }: { children: ReactNode }) {
