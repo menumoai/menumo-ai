@@ -21,20 +21,37 @@ type AccountContextValue = {
     isBusiness: boolean;
 };
 
-const AccountContext = createContext<AccountContextValue | undefined>(
-    undefined,
-);
+const AccountContext = createContext<AccountContextValue | undefined>(undefined);
 
 export function AccountProvider({ children }: { children: ReactNode }) {
-    const { user, loading: authLoading } = useAuth();
+    const {
+        user,
+        loading: authLoading,
+        profile,
+        profileLoading,
+    } = useAuth();
+
     const [account, setAccount] = useState<BusinessAccount | null>(null);
     const [accountLoading, setAccountLoading] = useState(true);
 
-    const accountId = user?.uid ?? null;
+    const resolvedAccountId =
+        profile?.primaryAccountId && profile.primaryAccountId.trim() !== ""
+            ? profile.primaryAccountId
+            : user?.uid ?? null;
 
     useEffect(() => {
-        // No user → no account
+        if (authLoading || profileLoading) {
+            setAccountLoading(true);
+            return;
+        }
+
         if (!user) {
+            setAccount(null);
+            setAccountLoading(false);
+            return;
+        }
+
+        if (!resolvedAccountId) {
             setAccount(null);
             setAccountLoading(false);
             return;
@@ -42,42 +59,46 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
         setAccountLoading(true);
 
-        const ref = doc(db, "accounts", user.uid);
+        const ref = doc(db, "accounts", resolvedAccountId);
 
         const unsub = onSnapshot(
             ref,
             (snap) => {
                 if (snap.exists()) {
-                    setAccount({ id: snap.id, ...(snap.data() as any) });
+                    setAccount({
+                        id: snap.id,
+                        ...(snap.data() as Omit<BusinessAccount, "id">),
+                    });
                 } else {
                     setAccount(null);
                 }
+
                 setAccountLoading(false);
             },
             (err) => {
                 console.error("Error listening to account doc:", err);
                 setAccount(null);
                 setAccountLoading(false);
-            },
+            }
         );
 
         return () => unsub();
-    }, [user?.uid]);
+    }, [user?.uid, resolvedAccountId, authLoading, profileLoading]);
 
-    // derive role + isBusiness
     const isBusiness = !!account;
+
     const role: AppUserRole | null = !user
         ? null
         : isBusiness
-            ? "owner" // later we can read real AccountUser.role
-            : "customer";
+            ? "owner"
+            : null;
 
     return (
         <AccountContext.Provider
             value={{
-                accountId,
+                accountId: resolvedAccountId,
                 account,
-                loading: authLoading || accountLoading,
+                loading: authLoading || profileLoading || accountLoading,
                 role,
                 isBusiness,
             }}
