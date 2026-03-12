@@ -83,6 +83,7 @@ export function AppRoutes() {
                     </BusinessRoute>
                 }
             />
+            <Route path="*" element={<LandingPage />} />
         </Routes>
     );
 }
