@@ -30,7 +30,6 @@ export function AuthPage() {
     const [loading, setLoading] = useState(false);
 
     const [userKind, setUserKind] = useState<AppUserKind>("business_owner");
-
     const navigate = useNavigate();
 
     const handleGoogleSignIn = async () => {
@@ -85,16 +84,16 @@ export function AuthPage() {
 
                 setStatus("Google sign-in successful ✅");
                 if (userKind === "customer") {
-                    navigate("/browse-trucks");
+                    navigate("/dashboard");
                 } else {
-                    navigate("/menu");
+                    navigate("/dashboard");
                 }
             } else {
                 setStatus("Google sign-in successful ✅");
                 if (existingProfile.kind === "customer") {
-                    navigate("/browse-trucks");
+                    navigate("/dashboard");
                 } else {
-                    navigate("/menu");
+                    navigate("/dashboard");
                 }
             }
         } catch (err: any) {
@@ -162,7 +161,7 @@ export function AuthPage() {
                     });
 
                     setStatus("Signup successful ✅");
-                    navigate("/browse-trucks");
+                    navigate("/dashboard");
                 }
             } else {
                 const cred = await signInWithEmailAndPassword(auth, email, password);
@@ -172,9 +171,9 @@ export function AuthPage() {
                 try {
                     const profile = await getUserProfile(user.uid);
                     if (profile?.kind === "customer") {
-                        destination = "/browse-trucks";
+                        destination = "/dashboard";
                     } else {
-                        destination = "/menu";
+                        destination = "/dashboard";
                     }
                 } catch (err) {
                     console.error("Error loading profile during login", err);
