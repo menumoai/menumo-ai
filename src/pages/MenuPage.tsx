@@ -351,7 +351,7 @@ export function MenuPage() {
                                     <button
                                         key={cat}
                                         type="button"
-                                        onClick={() => setSelectedCategory(cat)}
+                                        onClick={() => setSelectedCategory(cat as string)}
                                         className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${selectedCategory === cat
                                                 ? "bg-teal-600 text-white"
                                                 : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -360,8 +360,7 @@ export function MenuPage() {
                                         {cat === "all" ? "All Items" : cat}
                                     </button>
                                 ))}
-                            </div>
-                        </div>
+                            </div>                        </div>
                     </div>
 
                     <ProductList products={filteredProducts} loading={loading} />

@@ -97,10 +97,16 @@ export default function WeeklyRevenueTrendCard({
                             tickFormatter={(value) => `$${value}`}
                         />
                         <Tooltip
-                            formatter={(value: number, name: string) => {
-                                if (name === "revenue") return [formatMoney(value), "Revenue"];
-                                if (name === "orders") return [value, "Orders"];
-                                return [value, name];
+                            formatter={(value, name) => {
+                                if (name === "revenue" && typeof value === "number") {
+                                    return [formatMoney(value), "Revenue"];
+                                }
+
+                                if (name === "orders" && typeof value === "number") {
+                                    return [value, "Orders"];
+                                }
+
+                                return [value ?? "—", String(name)];
                             }}
                             contentStyle={{
                                 background: "white",
@@ -109,8 +115,7 @@ export default function WeeklyRevenueTrendCard({
                                 boxShadow: "0 10px 25px rgba(0,0,0,0.08)",
                             }}
                             labelStyle={{ color: "#111827", fontWeight: 600 }}
-                        />
-                        <Line
+                        />                        <Line
                             type="monotone"
                             dataKey="revenue"
                             stroke="#14b8a6"
