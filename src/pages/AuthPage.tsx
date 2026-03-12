@@ -1,4 +1,3 @@
-// src/pages/AuthPage.tsx
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
@@ -14,9 +13,6 @@ import { createBusinessAccount } from "../services/accounts";
 import { createAccountUser } from "../services/users";
 import { getUserProfile, upsertUserProfile } from "../services/profile";
 
-import type { AppUserKind } from "../models/profile";
-
-import { UserKindSelector } from "../components/auth/UserKindSelector";
 import { EmailPasswordFields } from "../components/auth/EmailPasswordFields";
 import { GoogleSignInButton } from "../components/auth/GoogleSignInButton";
 import { AuthStatusText } from "../components/auth/AuthStatusText";
@@ -29,7 +25,6 @@ export function AuthPage() {
     const [status, setStatus] = useState("");
     const [loading, setLoading] = useState(false);
 
-    const [userKind, setUserKind] = useState<AppUserKind>("business_owner");
     const navigate = useNavigate();
 
     const handleGoogleSignIn = async () => {
@@ -49,53 +44,34 @@ export function AuthPage() {
             const existingProfile = await getUserProfile(uid);
 
             if (!existingProfile) {
-                if (userKind === "business_owner") {
-                    const accountId = uid;
+                const accountId = uid;
 
-                    await createBusinessAccount({
-                        id: accountId,
-                        name: user.displayName
-                            ? `${user.displayName}'s Truck`
-                            : "Demo Taco Truck",
-                        legalName: "Demo Taco Truck LLC",
-                        email: user.email ?? undefined,
-                    });
+                await createBusinessAccount({
+                    id: accountId,
+                    name: user.displayName
+                        ? `${user.displayName}'s Truck`
+                        : "Demo Taco Truck",
+                    legalName: "Demo Taco Truck LLC",
+                    email: user.email ?? undefined,
+                });
 
-                    await createAccountUser({
-                        accountId,
-                        id: uid,
-                        email: user.email ?? "",
-                        firstName: user.displayName ?? "Owner",
-                        role: "owner",
-                    });
+                await createAccountUser({
+                    accountId,
+                    id: uid,
+                    email: user.email ?? "",
+                    firstName: user.displayName ?? "Owner",
+                    role: "owner",
+                });
 
-                    await upsertUserProfile({
-                        uid,
-                        kind: "business_owner",
-                        primaryAccountId: accountId,
-                    });
-                } else {
-                    await upsertUserProfile({
-                        uid,
-                        kind: "customer",
-                        primaryAccountId: null,
-                    });
-                }
-
-                setStatus("Google sign-in successful ✅");
-                if (userKind === "customer") {
-                    navigate("/dashboard");
-                } else {
-                    navigate("/dashboard");
-                }
-            } else {
-                setStatus("Google sign-in successful ✅");
-                if (existingProfile.kind === "customer") {
-                    navigate("/dashboard");
-                } else {
-                    navigate("/dashboard");
-                }
+                await upsertUserProfile({
+                    uid,
+                    kind: "business_owner",
+                    primaryAccountId: accountId,
+                });
             }
+
+            setStatus("Google sign-in successful ✅");
+            navigate("/dashboard", { replace: true });
         } catch (err: any) {
             console.error(err);
             setStatus(err.message ?? "Google sign-in error");
@@ -111,8 +87,8 @@ export function AuthPage() {
 
         try {
             if (mode === "signup") {
-                if (!firstName && userKind === "business_owner") {
-                    setStatus("First name is required for signup as a business owner");
+                if (!firstName.trim()) {
+                    setStatus("First name is required for signup");
                     setLoading(false);
                     return;
                 }
@@ -122,65 +98,38 @@ export function AuthPage() {
                     email,
                     password
                 );
+
                 const user = cred.user;
                 const uid = user.uid;
+                const accountId = uid;
 
-                if (userKind === "business_owner") {
-                    const accountId = uid;
+                await createBusinessAccount({
+                    id: accountId,
+                    name: `${firstName}'s Truck`,
+                    legalName: `${firstName} Demo LLC`,
+                    email,
+                });
 
-                    await createBusinessAccount({
-                        id: accountId,
-                        name: firstName ? `${firstName}'s Truck` : "Demo Taco Truck",
-                        legalName: firstName
-                            ? `${firstName} Demo LLC`
-                            : "Demo Taco Truck LLC",
-                        email,
-                    });
+                await createAccountUser({
+                    accountId,
+                    id: uid,
+                    email,
+                    firstName: firstName || "Owner",
+                    role: "owner",
+                });
 
-                    await createAccountUser({
-                        accountId,
-                        id: uid,
-                        email,
-                        firstName: firstName || "Owner",
-                        role: "owner",
-                    });
+                await upsertUserProfile({
+                    uid,
+                    kind: "business_owner",
+                    primaryAccountId: accountId,
+                });
 
-                    await upsertUserProfile({
-                        uid,
-                        kind: "business_owner",
-                        primaryAccountId: accountId,
-                    });
-
-                    setStatus("Signup successful ✅");
-                    navigate("/menu");
-                } else {
-                    await upsertUserProfile({
-                        uid,
-                        kind: "customer",
-                        primaryAccountId: null,
-                    });
-
-                    setStatus("Signup successful ✅");
-                    navigate("/dashboard");
-                }
+                setStatus("Signup successful ✅");
+                navigate("/dashboard", { replace: true });
             } else {
-                const cred = await signInWithEmailAndPassword(auth, email, password);
-                const user = cred.user;
-
-                let destination = "/menu";
-                try {
-                    const profile = await getUserProfile(user.uid);
-                    if (profile?.kind === "customer") {
-                        destination = "/dashboard";
-                    } else {
-                        destination = "/dashboard";
-                    }
-                } catch (err) {
-                    console.error("Error loading profile during login", err);
-                }
-
+                await signInWithEmailAndPassword(auth, email, password);
                 setStatus("Login successful ✅");
-                navigate(destination);
+                navigate("/dashboard", { replace: true });
             }
         } catch (err: any) {
             console.error(err);
@@ -198,13 +147,12 @@ export function AuthPage() {
     const title = mode === "signup" ? "Create your account" : "Welcome back";
     const subtitle =
         mode === "signup"
-            ? "Start using Menumo as a food truck owner or customer."
-            : "Log in to manage your truck or place orders.";
+            ? "Start using Menumo to manage your food truck."
+            : "Log in to manage your truck.";
 
     return (
         <div className="min-h-screen bg-[#FBF8F3]">
             <div className="mx-auto grid min-h-screen max-w-7xl lg:grid-cols-2">
-                {/* Left Side */}
                 <div className="flex items-center px-6 py-10 sm:px-10 lg:px-14">
                     <div className="w-full max-w-xl">
                         <div className="mb-8 flex items-center gap-3">
@@ -256,20 +204,6 @@ export function AuthPage() {
                             </div>
 
                             <div className="flex gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-                                <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
-                                    <CheckCircle2 className="h-4 w-4 text-blue-700" />
-                                </div>
-                                <div>
-                                    <h3 className="font-semibold text-gray-900">
-                                        For customers
-                                    </h3>
-                                    <p className="mt-1 text-sm text-gray-600">
-                                        Browse trucks, explore menus, and place orders quickly from one place.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="flex gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
                                 <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-purple-100">
                                     <CheckCircle2 className="h-4 w-4 text-purple-700" />
                                 </div>
@@ -286,7 +220,6 @@ export function AuthPage() {
                     </div>
                 </div>
 
-                {/* Right Side */}
                 <div className="flex items-center justify-center px-6 py-10 sm:px-10 lg:px-14">
                     <div className="w-full max-w-md rounded-3xl border border-gray-100 bg-white p-8 shadow-xl">
                         <div className="mb-6">
@@ -304,22 +237,18 @@ export function AuthPage() {
 
                         <form onSubmit={handleSubmit} className="space-y-4">
                             {mode === "signup" && (
-                                <>
-                                    <div className="space-y-1">
-                                        <label className="block text-xs font-medium text-gray-600">
-                                            First name
-                                        </label>
-                                        <input
-                                            type="text"
-                                            placeholder="First name"
-                                            value={firstName}
-                                            onChange={(e) => setFirstName(e.target.value)}
-                                            className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 shadow-sm outline-none placeholder:text-gray-400 focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
-                                        />
-                                    </div>
-
-                                    <UserKindSelector value={userKind} onChange={setUserKind} />
-                                </>
+                                <div className="space-y-1">
+                                    <label className="block text-xs font-medium text-gray-600">
+                                        First name
+                                    </label>
+                                    <input
+                                        type="text"
+                                        placeholder="First name"
+                                        value={firstName}
+                                        onChange={(e) => setFirstName(e.target.value)}
+                                        className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 shadow-sm outline-none placeholder:text-gray-400 focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                                    />
+                                </div>
                             )}
 
                             <EmailPasswordFields
