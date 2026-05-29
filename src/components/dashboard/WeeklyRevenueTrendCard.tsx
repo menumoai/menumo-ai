@@ -7,7 +7,7 @@ import {
     CartesianGrid,
     Tooltip,
 } from "recharts";
-import type { RevenueTrendPoint } from "../../dashboard/dashboardSelectors";
+import type { RevenueTrendPoint } from "../../analysis/types";
 
 type Props = {
     data: RevenueTrendPoint[];
@@ -28,12 +28,16 @@ export default function WeeklyRevenueTrendCard({
     title = "Weekly Revenue Trend",
     subtitle = "Revenue and order volume over the last 7 days",
 }: Props) {
-    const totalRevenue = data.reduce((sum, point) => sum + point.revenue, 0);
+    const totalRevenue = data.reduce((sum, point) => sum + point.revenueCents, 0);
     const totalOrders = data.reduce((sum, point) => sum + point.orders, 0);
     const avgDailyRevenue = data.length > 0 ? totalRevenue / data.length : 0;
     const peakDay =
         data.length > 0
-            ? data.reduce((max, point) => (point.revenue > max.revenue ? point : max), data[0])
+            ? data.reduce(
+                (max, point) =>
+                    point.revenueCents > max.revenueCents ? point : max,
+                data[0],
+            )
             : null;
 
     return (
@@ -50,7 +54,7 @@ export default function WeeklyRevenueTrendCard({
                 </div>
 
                 <div className="rounded-full border border-gray-100 bg-gray-50 px-3 py-1 text-xs text-gray-500">
-                    7 days
+                    {data.length} days
                 </div>
             </div>
 
@@ -76,7 +80,7 @@ export default function WeeklyRevenueTrendCard({
                         Peak Day
                     </p>
                     <p className="text-lg font-semibold text-gray-900">
-                        {peakDay ? peakDay.day : "—"}
+                        {peakDay ? peakDay.label : "—"}
                     </p>
                 </div>
             </div>
@@ -88,17 +92,17 @@ export default function WeeklyRevenueTrendCard({
                         margin={{ top: 8, right: 8, left: 8, bottom: 8 }}
                     >
                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                        <XAxis dataKey="day" stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} />
+                        <XAxis dataKey="label" stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} />
                         <YAxis
                             stroke="#9ca3af"
                             fontSize={12}
                             tickLine={false}
                             axisLine={false}
-                            tickFormatter={(value) => `$${value}`}
+                            tickFormatter={(value) => `$${Math.round(Number(value) / 100)}`}
                         />
                         <Tooltip
                             formatter={(value, name) => {
-                                if (name === "revenue" && typeof value === "number") {
+                                if (name === "revenueCents" && typeof value === "number") {
                                     return [formatMoney(value), "Revenue"];
                                 }
 
@@ -117,7 +121,7 @@ export default function WeeklyRevenueTrendCard({
                             labelStyle={{ color: "#111827", fontWeight: 600 }}
                         />                        <Line
                             type="monotone"
-                            dataKey="revenue"
+                            dataKey="revenueCents"
                             stroke="#14b8a6"
                             strokeWidth={3}
                             dot={{ fill: "#14b8a6", r: 4 }}

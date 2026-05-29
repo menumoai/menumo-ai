@@ -5,7 +5,7 @@ import {
     Package,
     TrendingUp,
 } from "lucide-react";
-import type { DashboardSummary } from "../../dashboard/dashboardTypes";
+import type { DashboardSummary } from "../../analysis/types";
 
 type SummaryCardProps = {
     title: string;
@@ -86,7 +86,7 @@ export function SummaryCards({ summary }: { summary: DashboardSummary }) {
                 title="Today"
                 subtitle="Orders placed since midnight."
                 count={today.count}
-                revenue={today.revenue}
+                revenue={today.revenueCents / 100}
                 icon={Calendar}
                 iconWrapperClassName="bg-gradient-to-br from-blue-100 to-blue-200"
                 iconClassName="text-blue-700"
@@ -96,7 +96,7 @@ export function SummaryCards({ summary }: { summary: DashboardSummary }) {
                 title="Last 7 Days"
                 subtitle="Rolling week, including today."
                 count={last7Days.count}
-                revenue={last7Days.revenue}
+                revenue={last7Days.revenueCents / 100}
                 icon={Package}
                 iconWrapperClassName="bg-gradient-to-br from-orange-100 to-orange-200"
                 iconClassName="text-orange-700"
@@ -106,7 +106,7 @@ export function SummaryCards({ summary }: { summary: DashboardSummary }) {
                 title="All Time"
                 subtitle="Since this account started using Menumo."
                 count={allTime.count}
-                revenue={allTime.revenue}
+                revenue={allTime.revenueCents / 100}
                 icon={DollarSign}
                 iconWrapperClassName="bg-gradient-to-br from-green-100 to-green-200"
                 iconClassName="text-green-700"

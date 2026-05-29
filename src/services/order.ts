@@ -142,6 +142,23 @@ export async function listOrderLineItems(
     });
 }
 
+export async function listOrderLineItemsForOrders(
+    accountId: string,
+    orderIds: string[],
+): Promise<OrderLineItem[]> {
+    const uniqueOrderIds = Array.from(new Set(orderIds.filter(Boolean)));
+
+    if (uniqueOrderIds.length === 0) {
+        return [];
+    }
+
+    const itemGroups = await Promise.all(
+        uniqueOrderIds.map((orderId) => listOrderLineItems(accountId, orderId)),
+    );
+
+    return itemGroups.flat();
+}
+
 type OrderStatus = Order["status"];
 
 export async function updateOrderStatus(
@@ -151,7 +168,7 @@ export async function updateOrderStatus(
 ): Promise<void> {
     const orderRef = doc(db, "accounts", accountId, "orders", orderId);
 
-    const updates: any = {
+    const updates: Record<string, string | ReturnType<typeof serverTimestamp>> = {
         status: newStatus,
         updatedAt: serverTimestamp(),
     };

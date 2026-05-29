@@ -171,6 +171,7 @@ export function DashboardLayout({
 
     const navItems = [
         { path: "/dashboard", label: "Dashboard", icon: Home },
+        { path: "/analytics/revenue", label: "Analytics", icon: BarChart3 },
         { path: "/orders", label: "Orders", icon: UtensilsCrossed },
         { path: "/menu", label: "Menu", icon: ChefHat },
         { path: "/expenses", label: "Expenses", icon: DollarSign },
