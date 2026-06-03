@@ -9,8 +9,11 @@ import RecentExpensesTable from "../components/dashboard/RecentExpensesTable";
 import { RecentOrdersTable } from "../components/dashboard/RecentOrdersTable";
 import RevenueVsExpensesPie from "../components/dashboard/RevenueVsExpensesPie";
 import { SummaryCards } from "../components/dashboard/SummaryCard";
+import { TopPerformersCard } from "../components/dashboard/TopPerformersCard";
 import WeeklyRevenueTrendCard from "../components/dashboard/WeeklyRevenueTrendCard";
 import { useAnalyticsSnapshot } from "../hooks/useAnalyticsSnapshot";
+
+const PERFORMANCE_COLORS = ["#14b8a6", "#f59e0b", "#8b5cf6", "#3b82f6", "#ef4444"];
 
 function formatMoney(cents: number) {
     return (cents / 100).toLocaleString("en-US", {
@@ -48,6 +51,66 @@ export function DashboardPage() {
             .map(([category, totalCents]) => ({ category, totalCents }))
             .sort((left, right) => right.totalCents - left.totalCents);
     }, [snapshot.expenses]);
+
+    const averageFoodCostPct = useMemo(() => {
+        const pricedProducts = snapshot.products.filter(
+            (product) =>
+                product.price > 0 &&
+                typeof product.cost === "number" &&
+                Number.isFinite(product.cost),
+        );
+
+        if (pricedProducts.length === 0) {
+            return null;
+        }
+
+        const totalPct = pricedProducts.reduce((sum, product) => {
+            return sum + ((product.cost ?? 0) / product.price) * 100;
+        }, 0);
+
+        return totalPct / pricedProducts.length;
+    }, [snapshot.products]);
+
+    const wasteRisk = useMemo(() => {
+        const soldProductIds = new Set(analytics.topItems.map((item) => item.productId));
+        const stockedProducts = snapshot.products.filter(
+            (product) =>
+                typeof product.currentStock === "number" && Number.isFinite(product.currentStock) && product.currentStock > 0,
+        );
+
+        if (stockedProducts.length === 0) {
+            return { atRiskCount: 0, pct: null as number | null };
+        }
+
+        const atRiskCount = stockedProducts.filter(
+            (product) => !soldProductIds.has(product.id),
+        ).length;
+
+        return {
+            atRiskCount,
+            pct: (atRiskCount / stockedProducts.length) * 100,
+        };
+    }, [analytics.topItems, snapshot.products]);
+
+    const topPerformerShare = useMemo(() => {
+        const topItems = analytics.topItems.slice(0, 5);
+        const totalRevenue = topItems.reduce((sum, item) => sum + item.revenueCents, 0);
+
+        if (topItems.length === 0 || totalRevenue === 0) {
+            return [];
+        }
+
+        return topItems.map((item, index) => ({
+            name: item.name,
+            value: (item.revenueCents / totalRevenue) * 100,
+            color: PERFORMANCE_COLORS[index % PERFORMANCE_COLORS.length],
+        }));
+    }, [analytics.topItems]);
+
+    const hasAnyData =
+        snapshot.orders.length > 0 ||
+        snapshot.expenses.length > 0 ||
+        snapshot.products.length > 0;
 
     if (accountLoading) {
         return <p className="px-6 py-6 text-sm text-slate-600">Loading account...</p>;
@@ -124,8 +187,114 @@ export function DashboardPage() {
                     </div>
                 )}
 
+                {account?.posConnected && (
+                    <div className="rounded-2xl border border-teal-100 bg-teal-50 px-4 py-3 text-sm text-teal-800 shadow-sm">
+                        Connected to {account.posProvider ?? "your POS"} and syncing analytics for{" "}
+                        <span className="font-semibold text-teal-900">{account.name}</span>.
+                    </div>
+                )}
+
+                {!hasAnyData && (
+                    <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+                        <h2
+                            className="text-xl font-semibold text-gray-900"
+                            style={{ fontFamily: "Poppins, sans-serif" }}
+                        >
+                            Add your first data source
+                        </h2>
+                        <p className="mt-2 text-sm text-gray-500">
+                            Start with the quickest path to make this dashboard useful.
+                        </p>
+
+                        <div className="mt-5 grid gap-4 md:grid-cols-3">
+                            {[
+                                {
+                                    to: "/menu",
+                                    title: "Add menu items",
+                                    body: "Capture prices and food cost so profitability widgets can populate.",
+                                },
+                                {
+                                    to: "/orders/new",
+                                    title: "Log an order",
+                                    body: "Sales trends, peak windows, and item rankings need at least one order.",
+                                },
+                                {
+                                    to: "/expenses",
+                                    title: "Record an expense",
+                                    body: "Expense summaries and finance reports start here.",
+                                },
+                            ].map((item) => (
+                                <Link
+                                    key={item.to}
+                                    to={item.to}
+                                    className="rounded-xl border border-gray-100 bg-gray-50 p-4 transition hover:border-teal-200 hover:bg-teal-50"
+                                >
+                                    <div className="font-semibold text-gray-900">{item.title}</div>
+                                    <div className="mt-2 text-sm text-gray-500">{item.body}</div>
+                                </Link>
+                            ))}
+                        </div>
+                    </section>
+                )}
+
                 <SummaryCards summary={analytics.summary} />
                 <WeeklyRevenueTrendCard data={analytics.weeklyTrend} />
+
+                <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+                        <div className="mb-3 flex items-center justify-between">
+                            <span className="text-sm text-gray-600">Avg Food Cost</span>
+                            <DollarSign className="h-4 w-4 text-amber-600" />
+                        </div>
+                        <div className="text-2xl font-bold text-gray-900">
+                            {averageFoodCostPct == null ? "—" : `${averageFoodCostPct.toFixed(1)}%`}
+                        </div>
+                        <div className="mt-1 text-xs text-gray-500">Target: 28–32%</div>
+                    </div>
+
+                    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+                        <div className="mb-3 flex items-center justify-between">
+                            <span className="text-sm text-gray-600">Waste Risk</span>
+                            <Receipt className="h-4 w-4 text-rose-600" />
+                        </div>
+                        <div className="text-2xl font-bold text-gray-900">
+                            {wasteRisk.pct == null ? "—" : `${wasteRisk.pct.toFixed(1)}%`}
+                        </div>
+                        <div className="mt-1 text-xs text-gray-500">
+                            {wasteRisk.atRiskCount} stocked items had no recent sales
+                        </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+                        <div className="mb-3 flex items-center justify-between">
+                            <span className="text-sm text-gray-600">Tracked Products</span>
+                            <Package className="h-4 w-4 text-teal-600" />
+                        </div>
+                        <div className="text-2xl font-bold text-gray-900">
+                            {snapshot.products.length}
+                        </div>
+                        <div className="mt-1 text-xs text-gray-500">
+                            Menu items with analytics-ready pricing data
+                        </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+                        <div className="mb-3 flex items-center justify-between">
+                            <span className="text-sm text-gray-600">Top Item</span>
+                            <TrendingUp className="h-4 w-4 text-purple-600" />
+                        </div>
+                        <div className="text-2xl font-bold text-gray-900">
+                            {analytics.topItems[0]?.name ?? "—"}
+                        </div>
+                        <div className="mt-1 text-xs text-gray-500">
+                            {analytics.topItems[0]
+                                ? `${formatMoney(analytics.topItems[0].revenueCents)} in the last 30 days`
+                                : "Need more sales data"}
+                        </div>
+                    </div>
+                </section>
+
+                <TopPerformersCard data={topPerformerShare} />
 
                 <section className="space-y-4">
                     <div className="flex items-center justify-between gap-2">

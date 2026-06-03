@@ -6,6 +6,7 @@ import { computeDashboardSummary, selectRecentOrders } from "./dashboard";
 import type {
     AnalyticsSnapshot,
     ChannelPerformanceRow,
+    HourlyRevenueBucket,
     RankedMenuItem,
     RevenueAnalytics,
     RevenueCategoryRow,
@@ -81,6 +82,7 @@ function buildTopItems(
     products: Product[],
 ): {
     topItems: RankedMenuItem[];
+    bottomItems: RankedMenuItem[];
     categoryRevenue: RevenueCategoryRow[];
     estimatedGrossProfitCents: number | null;
     estimatedGrossMarginPct: number | null;
@@ -151,7 +153,7 @@ function buildTopItems(
         categorySummary.set(category, existingCategory);
     }
 
-    const topItems = Array.from(itemSummary.values())
+    const rankedItems = Array.from(itemSummary.values())
         .map((row) => ({
             ...row,
             avgUnitPriceCents:
@@ -162,8 +164,17 @@ function buildTopItems(
                 return right.revenueCents - left.revenueCents;
             }
             return right.quantity - left.quantity;
+        });
+
+    const topItems = rankedItems.slice(0, 8);
+    const bottomItems = [...rankedItems]
+        .sort((left, right) => {
+            if (left.revenueCents !== right.revenueCents) {
+                return left.revenueCents - right.revenueCents;
+            }
+            return left.quantity - right.quantity;
         })
-        .slice(0, 8);
+        .slice(0, 5);
 
     const categoryRevenue = Array.from(categorySummary.entries())
         .map(([category, value]) => ({
@@ -188,11 +199,40 @@ function buildTopItems(
 
     return {
         topItems,
+        bottomItems,
         categoryRevenue,
         estimatedGrossProfitCents: grossProfitCents,
         estimatedGrossMarginPct: grossMarginPct,
         marginCoveragePct,
     };
+}
+
+function buildHourlyBuckets(periodOrders: Order[]): HourlyRevenueBucket[] {
+    const bySlot = new Map<string, HourlyRevenueBucket>();
+
+    for (const order of periodOrders) {
+        const placedAt = toDate(order.placedAt);
+        const dayOfWeek = placedAt.getDay();
+        const hour = placedAt.getHours();
+        const key = `${dayOfWeek}-${hour}`;
+        const existing = bySlot.get(key) ?? {
+            dayOfWeek,
+            hour,
+            revenueCents: 0,
+            orderCount: 0,
+        };
+
+        existing.revenueCents += toCents(order.totalAmount);
+        existing.orderCount += 1;
+        bySlot.set(key, existing);
+    }
+
+    return Array.from(bySlot.values()).sort((left, right) => {
+        if (left.dayOfWeek !== right.dayOfWeek) {
+            return left.dayOfWeek - right.dayOfWeek;
+        }
+        return left.hour - right.hour;
+    });
 }
 
 function buildChannelPerformance(periodOrders: Order[]): ChannelPerformanceRow[] {
@@ -254,6 +294,7 @@ export function computeRevenueAnalytics(
 
     const periodTrend = buildTrend(eligibleOrders, snapshot.expenses, days, now);
     const weeklyTrend = buildTrend(eligibleOrders, snapshot.expenses, 7, now);
+    const hourlyBuckets = buildHourlyBuckets(periodOrders);
     const recentOrders = selectRecentOrders(periodOrders.length > 0 ? periodOrders : eligibleOrders, 10);
     const channelPerformance = buildChannelPerformance(periodOrders);
     const topItemMetrics = buildTopItems(periodOrders, snapshot.lineItems, snapshot.products);
@@ -271,8 +312,10 @@ export function computeRevenueAnalytics(
         averageOrderValueCents,
         weeklyTrend,
         periodTrend,
+        hourlyBuckets,
         recentOrders,
         topItems: topItemMetrics.topItems,
+        bottomItems: topItemMetrics.bottomItems,
         categoryRevenue: topItemMetrics.categoryRevenue,
         channelPerformance,
         peakRevenueDay,

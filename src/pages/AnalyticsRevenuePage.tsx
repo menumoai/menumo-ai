@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { BarChart3, RefreshCw, TrendingUp } from "lucide-react";
 import { computeRevenueAnalytics } from "../analysis/revenue";
+import { BottomItemsCard } from "../components/analytics/BottomItemsCard";
+import { HourlyHeatmap } from "../components/analytics/HourlyHeatmap";
 import { RevenueCategoryCard } from "../components/analytics/RevenueCategoryCard";
 import { ChannelPerformanceCard } from "../components/analytics/ChannelPerformanceCard";
 import { RevenueMetricGrid } from "../components/analytics/RevenueMetricGrid";
@@ -187,6 +189,26 @@ export function AnalyticsRevenuePage() {
                 <section className="grid gap-6 lg:grid-cols-2">
                     <TopItemsCard items={analytics.topItems} />
                     <ChannelPerformanceCard rows={analytics.channelPerformance} />
+                </section>
+
+                <section className="grid gap-6 lg:grid-cols-2">
+                    <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+                        <div className="mb-5">
+                            <h2
+                                className="text-xl font-semibold text-gray-900"
+                                style={{ fontFamily: "Poppins, sans-serif" }}
+                            >
+                                Hourly Sales Heatmap
+                            </h2>
+                            <p className="mt-1 text-sm text-gray-500">
+                                Revenue concentration by weekday and hour in the selected window.
+                            </p>
+                        </div>
+
+                        <HourlyHeatmap data={analytics.hourlyBuckets} />
+                    </div>
+
+                    <BottomItemsCard items={analytics.bottomItems} />
                 </section>
 
                 <section className="space-y-4">

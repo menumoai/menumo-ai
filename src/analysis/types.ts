@@ -40,6 +40,13 @@ export type RevenueCategoryRow = {
     shareOfRevenuePct: number;
 };
 
+export type HourlyRevenueBucket = {
+    dayOfWeek: number;
+    hour: number;
+    revenueCents: number;
+    orderCount: number;
+};
+
 export type ChannelPerformanceRow = {
     channel: OrderChannel;
     orders: number;
@@ -55,8 +62,10 @@ export type RevenueAnalytics = {
     averageOrderValueCents: number;
     weeklyTrend: RevenueTrendPoint[];
     periodTrend: RevenueTrendPoint[];
+    hourlyBuckets: HourlyRevenueBucket[];
     recentOrders: Order[];
     topItems: RankedMenuItem[];
+    bottomItems: RankedMenuItem[];
     categoryRevenue: RevenueCategoryRow[];
     channelPerformance: ChannelPerformanceRow[];
     peakRevenueDay: string | null;
@@ -64,6 +73,20 @@ export type RevenueAnalytics = {
     estimatedGrossProfitCents: number | null;
     estimatedGrossMarginPct: number | null;
     marginCoveragePct: number;
+};
+
+export type MenuPerformanceQuadrant = "star" | "plowhorse" | "puzzle" | "dog";
+
+export type MenuPerformancePoint = {
+    productId: string;
+    name: string;
+    category: string;
+    popularity: number;
+    profitability: number;
+    revenueCents: number;
+    quantitySold: number;
+    marginPercent: number;
+    quadrant: MenuPerformanceQuadrant;
 };
 
 export type AnalyticsSnapshot = {

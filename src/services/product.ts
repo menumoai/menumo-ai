@@ -7,6 +7,7 @@ import {
   getDocs,
   query,
   serverTimestamp,
+  updateDoc,
 } from "firebase/firestore";
 import { db } from "../firebaseClient";
 import type { Product } from "../models/product";
@@ -86,3 +87,48 @@ export async function listProducts(accountId: string): Promise<Product[]> {
   return snap.docs.map((d) => d.data() as Product);
 }
 
+export async function updateProduct(params: {
+  accountId: string;
+  productId: string;
+  name: string;
+  description?: string;
+  category?: string;
+  price: number;
+  cost?: number;
+  isActive?: boolean;
+  menuType?: Product["menuType"];
+  stockUnit?: Product["stockUnit"];
+  currentStock?: number;
+  prepTimeSeconds?: number;
+}) {
+  const {
+    accountId,
+    productId,
+    name,
+    description,
+    category,
+    price,
+    cost,
+    isActive,
+    menuType,
+    stockUnit,
+    currentStock,
+    prepTimeSeconds,
+  } = params;
+
+  const ref = doc(productsCol(accountId), productId);
+
+  await updateDoc(ref, {
+    name,
+    description: description ?? null,
+    category: category ?? null,
+    price,
+    cost: cost ?? null,
+    ...(typeof isActive === "boolean" ? { isActive } : {}),
+    ...(menuType ? { menuType } : {}),
+    ...(stockUnit ? { stockUnit } : {}),
+    ...(typeof currentStock === "number" ? { currentStock } : {}),
+    ...(typeof prepTimeSeconds === "number" ? { prepTimeSeconds } : {}),
+    updatedAt: serverTimestamp(),
+  });
+}
