@@ -1,5 +1,5 @@
 import type { Order } from "../../models/order";
-import { toDate } from "../../dashboard/dashboardSelectors";
+import { toDate } from "../../analysis/date";
 
 export function RecentOrdersTable({
     orders,

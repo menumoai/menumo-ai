@@ -24,6 +24,10 @@ export async function createOrderWithLineItems(params: {
     accountId: string;
     customerId?: string;
     channel?: Order["channel"];
+    status?: Order["status"];
+    paymentStatus?: Order["paymentStatus"];
+    paymentMethod?: Order["paymentMethod"];
+    placedAt?: Order["placedAt"];
     items: {
         productId: string;
         quantity: number;
@@ -36,6 +40,10 @@ export async function createOrderWithLineItems(params: {
         accountId,
         customerId,
         channel = "web_form",
+        status = "pending",
+        paymentStatus = "unpaid",
+        paymentMethod,
+        placedAt,
         items,
     } = params;
 
@@ -54,13 +62,14 @@ export async function createOrderWithLineItems(params: {
         accountId,
         customerId: customerId ?? null,
         channel,
-        status: "pending",
-        placedAt: serverTimestamp(),
+        status,
+        placedAt: placedAt ?? serverTimestamp(),
         subtotalAmount: subtotal,
         taxAmount: 0,
         discountAmount: 0,
         totalAmount: subtotal,
-        paymentStatus: "unpaid",
+        paymentStatus,
+        paymentMethod: paymentMethod ?? null,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
     });
@@ -142,6 +151,23 @@ export async function listOrderLineItems(
     });
 }
 
+export async function listOrderLineItemsForOrders(
+    accountId: string,
+    orderIds: string[],
+): Promise<OrderLineItem[]> {
+    const uniqueOrderIds = Array.from(new Set(orderIds.filter(Boolean)));
+
+    if (uniqueOrderIds.length === 0) {
+        return [];
+    }
+
+    const itemGroups = await Promise.all(
+        uniqueOrderIds.map((orderId) => listOrderLineItems(accountId, orderId)),
+    );
+
+    return itemGroups.flat();
+}
+
 type OrderStatus = Order["status"];
 
 export async function updateOrderStatus(
@@ -151,7 +177,7 @@ export async function updateOrderStatus(
 ): Promise<void> {
     const orderRef = doc(db, "accounts", accountId, "orders", orderId);
 
-    const updates: any = {
+    const updates: Record<string, string | ReturnType<typeof serverTimestamp>> = {
         status: newStatus,
         updatedAt: serverTimestamp(),
     };

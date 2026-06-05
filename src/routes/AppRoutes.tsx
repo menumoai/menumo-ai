@@ -5,6 +5,8 @@ import { MenuPage } from "../pages/MenuPage";
 import { OrdersPage } from "../pages/OrdersPage";
 import { CreateOrderPage } from "../pages/CreateOrderPage";
 import { DashboardPage } from "../pages/DashboardPage";
+import { AnalyticsRevenuePage } from "../pages/AnalyticsRevenuePage";
+import FinanceTaxesPage from "../pages/FinanceTaxesPage";
 import { OrderDetailPage } from "../pages/OrderDetailPage";
 import { BrowseTrucksPage } from "../pages/BrowseTrucksPage";
 import ExpensesPage from "../pages/ExpensesPage";
@@ -69,6 +71,22 @@ export function AppRoutes() {
                 element={
                     <BusinessRoute>
                         <DashboardPage />
+                    </BusinessRoute>
+                }
+            />
+            <Route
+                path="/analytics/revenue"
+                element={
+                    <BusinessRoute>
+                        <AnalyticsRevenuePage />
+                    </BusinessRoute>
+                }
+            />
+            <Route
+                path="/finance"
+                element={
+                    <BusinessRoute>
+                        <FinanceTaxesPage />
                     </BusinessRoute>
                 }
             />

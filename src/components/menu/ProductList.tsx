@@ -1,4 +1,5 @@
 // src/components/menu/ProductList.tsx
+import type { ReactNode } from "react";
 import {
     DollarSign,
     Tags,
@@ -20,8 +21,21 @@ function formatMoney(value: number) {
 export function ProductList(props: {
     products: Product[];
     loading: boolean;
+    actionProductId?: string | null;
+    editingProductId?: string | null;
+    editForm?: ReactNode;
+    onEdit: (product: Product) => void;
+    onToggleActive: (product: Product) => void;
 }) {
-    const { products, loading } = props;
+    const {
+        products,
+        loading,
+        actionProductId,
+        editingProductId,
+        editForm,
+        onEdit,
+        onToggleActive,
+    } = props;
 
     if (loading && products.length === 0) {
         return (
@@ -44,13 +58,16 @@ export function ProductList(props: {
     return (
         <section>
             <div className="grid gap-4">
-                {products.map((p: any) => {
+                {products.map((p) => {
                     const isActive = p.isActive !== false;
+                    const isActingOnProduct = actionProductId === p.id;
+                    const isEditing = editingProductId === p.id;
 
                     return (
                         <div
                             key={p.id}
-                            className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition hover:shadow-md"
+                            className={`rounded-2xl border bg-white p-5 shadow-sm transition hover:shadow-md ${isEditing ? "border-teal-300 ring-2 ring-teal-100" : "border-gray-100"
+                                }`}
                         >
                             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                                 {/* Left */}
@@ -97,6 +114,16 @@ export function ProductList(props: {
                                             </div>
                                         </div>
 
+                                        <div className="rounded-xl bg-gray-50 p-3 min-w-[140px]">
+                                            <div className="mb-1 flex items-center gap-1">
+                                                <DollarSign className="h-3.5 w-3.5 text-amber-600" />
+                                                <span className="text-xs text-gray-600">Cost</span>
+                                            </div>
+                                            <div className="text-lg font-bold text-gray-900">
+                                                {p.cost != null ? formatMoney(p.cost) : "—"}
+                                            </div>
+                                        </div>
+
                                         <div className="rounded-xl bg-gray-50 p-3 min-w-[160px]">
                                             <div className="mb-1 flex items-center gap-1">
                                                 <Tags className="h-3.5 w-3.5 text-blue-600" />
@@ -113,30 +140,41 @@ export function ProductList(props: {
                                 <div className="flex gap-2 lg:flex-col">
                                     <button
                                         type="button"
-                                        className="inline-flex items-center justify-center rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                                        onClick={() => onEdit(p)}
+                                        disabled={isActingOnProduct}
+                                        className={`inline-flex items-center justify-center rounded-xl border px-3 py-2 text-sm font-medium transition ${isEditing
+                                                ? "border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100"
+                                                : "border-gray-200 text-gray-700 hover:bg-gray-50"
+                                            }`}
                                     >
                                         <Edit2 className="mr-2 h-3.5 w-3.5" />
-                                        Edit
+                                        {isEditing ? "Editing" : "Edit"}
                                     </button>
 
                                     <button
                                         type="button"
+                                        onClick={() => onToggleActive(p)}
+                                        disabled={isActingOnProduct}
                                         className="inline-flex items-center justify-center rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
                                     >
                                         {isActive ? (
                                             <>
                                                 <EyeOff className="mr-2 h-3.5 w-3.5" />
-                                                Disable
+                                                {isActingOnProduct ? "Saving..." : "Disable"}
                                             </>
                                         ) : (
                                             <>
                                                 <Eye className="mr-2 h-3.5 w-3.5" />
-                                                Enable
+                                                {isActingOnProduct ? "Saving..." : "Enable"}
                                             </>
                                         )}
                                     </button>
                                 </div>
                             </div>
+
+                            {isEditing && editForm ? (
+                                <div className="mt-5 border-t border-gray-100 pt-5">{editForm}</div>
+                            ) : null}
                         </div>
                     );
                 })}

@@ -10,8 +10,12 @@ import {
 } from "lucide-react";
 
 import { useAccount } from "../account/AccountContext";
-import { createProduct } from "../services/product";
+import type { Product } from "../models/product";
+import { useAnalyticsSnapshot } from "../hooks/useAnalyticsSnapshot";
+import { createProduct, updateProduct } from "../services/product";
 import { useMenuProducts } from "../hooks/useMenuProducts";
+import { computeMenuPerformanceMatrix } from "../analysis/menu";
+import { MenuPerformanceMatrix } from "../components/analytics/MenuPerformanceMatrix";
 
 import {
     AddProductForm,
@@ -22,6 +26,7 @@ import { ProductList } from "../components/menu/ProductList";
 const emptyForm: AddProductFormValues = {
     name: "",
     price: "",
+    cost: "",
     category: "",
     description: "",
 };
@@ -34,16 +39,33 @@ function formatMoney(value: number) {
     });
 }
 
+function toFormValues(product: Product): AddProductFormValues {
+    return {
+        name: product.name ?? "",
+        price: String(product.price ?? ""),
+        cost: product.cost != null ? String(product.cost) : "",
+        category: product.category ?? "",
+        description: product.description ?? "",
+    };
+}
+
 export function MenuPage() {
     const { accountId, loading: accountLoading, account } = useAccount();
 
     const { products, loading, status, setStatus, reload } = useMenuProducts(
         accountId ?? null
     );
+    const {
+        snapshot: analyticsSnapshot,
+        loading: analyticsLoading,
+        reload: reloadAnalytics,
+    } = useAnalyticsSnapshot(accountId ?? null);
 
     const [saving, setSaving] = useState(false);
+    const [actionProductId, setActionProductId] = useState<string | null>(null);
     const [formValues, setFormValues] = useState<AddProductFormValues>(emptyForm);
     const [showAddForm, setShowAddForm] = useState(false);
+    const [editingProductId, setEditingProductId] = useState<string | null>(null);
 
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -59,7 +81,7 @@ export function MenuPage() {
                 ? products.reduce((sum, p) => sum + (p.price ?? 0), 0) / products.length
                 : 0;
 
-        const activeItems = products.filter((p: any) => p.isActive !== false).length;
+        const activeItems = products.filter((p) => p.isActive !== false).length;
 
         return {
             totalItems,
@@ -90,6 +112,16 @@ export function MenuPage() {
         });
     }, [products, searchQuery, selectedCategory]);
 
+    const performanceMatrixData = useMemo(
+        () =>
+            computeMenuPerformanceMatrix(
+                analyticsSnapshot.products,
+                analyticsSnapshot.orders,
+                analyticsSnapshot.lineItems,
+            ),
+        [analyticsSnapshot.lineItems, analyticsSnapshot.orders, analyticsSnapshot.products],
+    );
+
     if (accountLoading) {
         return (
             <p className="px-6 py-6 text-sm text-slate-600">
@@ -106,7 +138,30 @@ export function MenuPage() {
         );
     }
 
-    const handleCreateProduct = async (values: AddProductFormValues) => {
+    const resetEditor = () => {
+        setFormValues(emptyForm);
+        setEditingProductId(null);
+        setShowAddForm(false);
+    };
+
+    const cancelEdit = () => {
+        setFormValues(emptyForm);
+        setEditingProductId(null);
+    };
+
+    const toggleFormPanel = () => {
+        if (showAddForm) {
+            setShowAddForm(false);
+            setFormValues(emptyForm);
+            return;
+        }
+
+        setEditingProductId(null);
+        setFormValues(emptyForm);
+        setShowAddForm(true);
+    };
+
+    const handleSaveProduct = async (values: AddProductFormValues) => {
         if (!values.name.trim() || !values.price.trim()) {
             setStatus("Name and price are required");
             return;
@@ -118,36 +173,107 @@ export function MenuPage() {
             return;
         }
 
+        const costNumber =
+            values.cost.trim() === "" ? undefined : parseFloat(values.cost.trim());
+        if (values.cost.trim() !== "" && (costNumber == null || Number.isNaN(costNumber))) {
+            setStatus("Cost must be a number");
+            return;
+        }
+
         setSaving(true);
         setStatus("");
 
         try {
-            await createProduct({
-                accountId,
-                name: values.name.trim(),
-                price: priceNumber,
-                category: values.category.trim() || undefined,
-                description: values.description.trim() || undefined,
-                menuType: "food",
-                stockUnit: "each",
-                isActive: true,
-            });
+            if (editingProductId) {
+                const currentProduct = products.find((product) => product.id === editingProductId);
+                if (!currentProduct) {
+                    setStatus("Product not found");
+                    return;
+                }
 
-            setFormValues(emptyForm);
-            setStatus("Created product ✅");
-            setShowAddForm(false);
-            await reload();
+                await updateProduct({
+                    accountId,
+                    productId: editingProductId,
+                    name: values.name.trim(),
+                    price: priceNumber,
+                    category: values.category.trim() || undefined,
+                    description: values.description.trim() || undefined,
+                    cost: costNumber,
+                    isActive: currentProduct.isActive,
+                    menuType: currentProduct.menuType ?? "food",
+                    stockUnit: currentProduct.stockUnit ?? "each",
+                    currentStock: currentProduct.currentStock,
+                    prepTimeSeconds: currentProduct.prepTimeSeconds,
+                });
+                await reload();
+                await reloadAnalytics();
+                setStatus("Updated product ✅");
+            } else {
+                await createProduct({
+                    accountId,
+                    name: values.name.trim(),
+                    price: priceNumber,
+                    category: values.category.trim() || undefined,
+                    description: values.description.trim() || undefined,
+                    cost: costNumber,
+                    menuType: "food",
+                    stockUnit: "each",
+                    isActive: true,
+                });
+                await reload();
+                await reloadAnalytics();
+                setStatus("Created product ✅");
+            }
+
+            resetEditor();
         } catch (err) {
             console.error(err);
-            setStatus("Error creating product");
+            setStatus(editingProductId ? "Error updating product" : "Error creating product");
         } finally {
             setSaving(false);
         }
     };
 
+    const handleEditProduct = (product: Product) => {
+        setEditingProductId(product.id);
+        setFormValues(toFormValues(product));
+        setShowAddForm(false);
+        setStatus(`Editing ${product.name}`);
+    };
+
+    const handleToggleActive = async (product: Product) => {
+        setActionProductId(product.id);
+        setStatus("");
+
+        try {
+            await updateProduct({
+                accountId,
+                productId: product.id,
+                name: product.name,
+                price: product.price,
+                category: product.category ?? undefined,
+                description: product.description ?? undefined,
+                isActive: product.isActive === false,
+                menuType: product.menuType ?? "food",
+                stockUnit: product.stockUnit ?? "each",
+                currentStock: product.currentStock,
+                prepTimeSeconds: product.prepTimeSeconds,
+                cost: product.cost,
+            });
+            await reload();
+            await reloadAnalytics();
+            setStatus(`${product.name} ${product.isActive === false ? "enabled" : "disabled"} ✅`);
+        } catch (err) {
+            console.error(err);
+            setStatus("Error updating product status");
+        } finally {
+            setActionProductId(null);
+        }
+    };
+
     const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        void handleCreateProduct(formValues);
+        void handleSaveProduct(formValues);
     };
 
     return (
@@ -179,7 +305,7 @@ export function MenuPage() {
 
                     <button
                         type="button"
-                        onClick={() => setShowAddForm((prev) => !prev)}
+                        onClick={toggleFormPanel}
                         className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#D94C3D] to-[#E67E50] px-4 py-2.5 text-sm font-medium text-white shadow-lg transition hover:from-[#C43D2E] hover:to-[#D96D3F]"
                     >
                         <Plus className="mr-2 h-4 w-4" />
@@ -281,7 +407,7 @@ export function MenuPage() {
                 <section className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
                     <button
                         type="button"
-                        onClick={() => setShowAddForm((prev) => !prev)}
+                        onClick={toggleFormPanel}
                         className="flex w-full items-center justify-between border-b border-gray-100 px-5 py-4 text-left"
                     >
                         <div>
@@ -310,9 +436,46 @@ export function MenuPage() {
                                 values={formValues}
                                 onChange={setFormValues}
                                 onSubmit={handleSubmit}
+                                onCancel={() => {
+                                    setShowAddForm(false);
+                                    setFormValues(emptyForm);
+                                }}
                                 loading={saving}
+                                mode="create"
                             />
                         </div>
+                    )}
+                </section>
+
+                <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+                    <div className="mb-5 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+                        <div>
+                            <h2
+                                className="text-xl font-semibold text-gray-900"
+                                style={{ fontFamily: "Poppins, sans-serif" }}
+                            >
+                                Menu Performance Matrix
+                            </h2>
+                            <p className="mt-1 text-sm text-gray-500">
+                                Popularity vs. profitability by menu item, using Firestore orders,
+                                line items, and product cost data.
+                            </p>
+                        </div>
+
+                        <div className="text-xs text-gray-500">
+                            Requires menu items with both price and cost data.
+                        </div>
+                    </div>
+
+                    {analyticsLoading && performanceMatrixData.length === 0 ? (
+                        <p className="text-sm text-gray-500">Loading performance data...</p>
+                    ) : performanceMatrixData.length === 0 ? (
+                        <p className="text-sm text-gray-500">
+                            No matrix data yet. Add menu item costs and record some orders to map
+                            items into popularity/profitability quadrants.
+                        </p>
+                    ) : (
+                        <MenuPerformanceMatrix data={performanceMatrixData} />
                     )}
                 </section>
 
@@ -360,10 +523,28 @@ export function MenuPage() {
                                         {cat === "all" ? "All Items" : cat}
                                     </button>
                                 ))}
-                            </div>                        </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <ProductList products={filteredProducts} loading={loading} />
+                    <ProductList
+                        products={filteredProducts}
+                        loading={loading}
+                        actionProductId={actionProductId}
+                        editingProductId={editingProductId}
+                        editForm={
+                            <AddProductForm
+                                values={formValues}
+                                onChange={setFormValues}
+                                onSubmit={handleSubmit}
+                                onCancel={cancelEdit}
+                                loading={saving}
+                                mode="edit"
+                            />
+                        }
+                        onEdit={handleEditProduct}
+                        onToggleActive={handleToggleActive}
+                    />
                 </section>
 
                 <p className="text-xs text-gray-500">

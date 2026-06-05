@@ -2,6 +2,7 @@
 import type { ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { AiCompanion } from "../components/ai/AiCompanion";
 import { DashboardLayout } from "./DashboardLayout";
 
 const PUBLIC_PATHS = ["/", "/auth"];
@@ -25,6 +26,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     return (
         <DashboardLayout onNavigateBack={handleNavigateBack}>
             {children}
+            <AiCompanion />
         </DashboardLayout>
     );
 }

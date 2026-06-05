@@ -10,6 +10,8 @@ export interface BusinessAccount {
   legalName?: string;
   email?: string;
   phone?: string;
+  posConnected?: boolean;
+  posProvider?: string | null;
 
   address1?: string;
   address2?: string;
@@ -27,4 +29,3 @@ export interface BusinessAccount {
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
-

@@ -8,6 +8,7 @@ import {
     ChefHat,
     Calendar,
     DollarSign,
+    Receipt,
     Users,
     BarChart3,
     Home,
@@ -171,6 +172,8 @@ export function DashboardLayout({
 
     const navItems = [
         { path: "/dashboard", label: "Dashboard", icon: Home },
+        { path: "/analytics/revenue", label: "Analytics", icon: BarChart3 },
+        { path: "/finance", label: "Finance", icon: Receipt },
         { path: "/orders", label: "Orders", icon: UtensilsCrossed },
         { path: "/menu", label: "Menu", icon: ChefHat },
         { path: "/expenses", label: "Expenses", icon: DollarSign },

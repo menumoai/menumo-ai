@@ -1,5 +1,6 @@
 // src/pages/DevConsole.tsx
 import { useState } from "react";
+import { Timestamp } from "firebase/firestore";
 import {
     TerminalSquare,
     Database,
@@ -9,9 +10,11 @@ import {
     Receipt,
     MapPin,
     UserRound,
+    DollarSign,
 } from "lucide-react";
 
 import { useAccount } from "../account/AccountContext";
+import { useAuth } from "../auth/AuthContext";
 
 import { createBusinessAccount, getBusinessAccount } from "../services/accounts";
 import { createAccountUser, listAccountUsers } from "../services/users";
@@ -19,11 +22,13 @@ import { createProduct, listProducts } from "../services/product";
 import { createOrderWithLineItems, listOrders } from "../services/order";
 import { createCustomer, listCustomers } from "../services/customer";
 import { createLocation, createPublicTruckLocation } from "../services/location";
+import { createExpense, listExpenses } from "../services/expense";
 
 import type { Product } from "../models/product";
 import type { Order } from "../models/order";
 import type { AccountUser } from "../models/user";
 import type { Customer } from "../models/customer";
+import type { Expense } from "../models/expense";
 
 function sectionCardClass() {
     return "rounded-2xl border border-gray-100 bg-white p-5 shadow-sm";
@@ -36,14 +41,241 @@ function actionButtonClass() {
     );
 }
 
+const DEV_ANALYTICS_PRODUCTS = [
+    {
+        id: "dev-birria-taco",
+        name: "Birria Taco",
+        description: "Slow-cooked beef birria with consommé",
+        category: "tacos",
+        price: 5.5,
+        cost: 2.0,
+        menuType: "food" as const,
+        stockUnit: "each" as const,
+        currentStock: 200,
+        prepTimeSeconds: 120,
+    },
+    {
+        id: "dev-street-corn",
+        name: "Street Corn Elote",
+        description: "Grilled corn with cotija, mayo, lime, chili",
+        category: "sides",
+        price: 4.0,
+        cost: 1.2,
+        menuType: "food" as const,
+        stockUnit: "each" as const,
+        currentStock: 100,
+        prepTimeSeconds: 90,
+    },
+    {
+        id: "dev-combo-plate",
+        name: "Taco Combo Plate",
+        description: "Three tacos, elote, and a drink",
+        category: "combos",
+        price: 15.5,
+        cost: 5.6,
+        menuType: "food" as const,
+        stockUnit: "each" as const,
+        currentStock: 80,
+        prepTimeSeconds: 240,
+    },
+    {
+        id: "dev-loaded-fries",
+        name: "Loaded Birria Fries",
+        description: "Fries topped with birria, cheese, crema, and salsa",
+        category: "specials",
+        price: 11.5,
+        cost: 4.3,
+        menuType: "food" as const,
+        stockUnit: "each" as const,
+        currentStock: 60,
+        prepTimeSeconds: 300,
+    },
+    {
+        id: "dev-agua-fresca",
+        name: "Agua Fresca",
+        description: "Fresh fruit agua fresca",
+        category: "drinks",
+        price: 3.75,
+        cost: 0.95,
+        menuType: "drink" as const,
+        stockUnit: "each" as const,
+        currentStock: 120,
+        prepTimeSeconds: 30,
+    },
+];
+
+const DEV_ANALYTICS_ORDER_PLAN = [
+    {
+        daysAgo: 26,
+        channel: "in_person" as const,
+        items: [
+            { productId: "dev-combo-plate", quantity: 3 },
+            { productId: "dev-agua-fresca", quantity: 3 },
+        ],
+    },
+    {
+        daysAgo: 24,
+        channel: "web_form" as const,
+        items: [
+            { productId: "dev-birria-taco", quantity: 6 },
+            { productId: "dev-street-corn", quantity: 2 },
+            { productId: "dev-agua-fresca", quantity: 2 },
+        ],
+    },
+    {
+        daysAgo: 21,
+        channel: "qr_code" as const,
+        items: [
+            { productId: "dev-loaded-fries", quantity: 3 },
+            { productId: "dev-birria-taco", quantity: 4 },
+        ],
+    },
+    {
+        daysAgo: 19,
+        channel: "in_person" as const,
+        items: [
+            { productId: "dev-combo-plate", quantity: 4 },
+            { productId: "dev-agua-fresca", quantity: 4 },
+        ],
+    },
+    {
+        daysAgo: 17,
+        channel: "phone" as const,
+        items: [
+            { productId: "dev-birria-taco", quantity: 8 },
+            { productId: "dev-street-corn", quantity: 3 },
+        ],
+    },
+    {
+        daysAgo: 15,
+        channel: "in_person" as const,
+        items: [
+            { productId: "dev-loaded-fries", quantity: 4 },
+            { productId: "dev-agua-fresca", quantity: 5 },
+        ],
+    },
+    {
+        daysAgo: 13,
+        channel: "web_form" as const,
+        items: [
+            { productId: "dev-combo-plate", quantity: 5 },
+            { productId: "dev-street-corn", quantity: 2 },
+            { productId: "dev-agua-fresca", quantity: 5 },
+        ],
+    },
+    {
+        daysAgo: 11,
+        channel: "qr_code" as const,
+        items: [
+            { productId: "dev-birria-taco", quantity: 10 },
+            { productId: "dev-loaded-fries", quantity: 2 },
+        ],
+    },
+    {
+        daysAgo: 9,
+        channel: "in_person" as const,
+        items: [
+            { productId: "dev-combo-plate", quantity: 3 },
+            { productId: "dev-birria-taco", quantity: 6 },
+            { productId: "dev-agua-fresca", quantity: 4 },
+        ],
+    },
+    {
+        daysAgo: 7,
+        channel: "web_form" as const,
+        items: [
+            { productId: "dev-loaded-fries", quantity: 5 },
+            { productId: "dev-street-corn", quantity: 4 },
+        ],
+    },
+    {
+        daysAgo: 5,
+        channel: "in_person" as const,
+        items: [
+            { productId: "dev-birria-taco", quantity: 12 },
+            { productId: "dev-agua-fresca", quantity: 6 },
+        ],
+    },
+    {
+        daysAgo: 3,
+        channel: "phone" as const,
+        items: [
+            { productId: "dev-combo-plate", quantity: 4 },
+            { productId: "dev-loaded-fries", quantity: 2 },
+            { productId: "dev-agua-fresca", quantity: 4 },
+        ],
+    },
+    {
+        daysAgo: 1,
+        channel: "in_person" as const,
+        items: [
+            { productId: "dev-birria-taco", quantity: 9 },
+            { productId: "dev-street-corn", quantity: 5 },
+            { productId: "dev-agua-fresca", quantity: 6 },
+        ],
+    },
+];
+
+const DEV_ANALYTICS_EXPENSE_PLAN: Array<{
+    daysAgo: number;
+    amountCents: number;
+    category: Expense["category"];
+    vendorName: string;
+    note: string;
+    paymentMethod: NonNullable<Expense["paymentMethod"]>;
+}> = [
+    {
+        daysAgo: 23,
+        amountCents: 9250,
+        category: "Food",
+        vendorName: "Capital Seafood Market",
+        note: "Protein and produce for the first two event weekends",
+        paymentMethod: "card" as const,
+    },
+    {
+        daysAgo: 16,
+        amountCents: 6400,
+        category: "Supplies",
+        vendorName: "Restaurant Depot",
+        note: "Containers, napkins, foil, and gloves",
+        paymentMethod: "card" as const,
+    },
+    {
+        daysAgo: 10,
+        amountCents: 4800,
+        category: "Fuel",
+        vendorName: "Chevron Fleet",
+        note: "Truck fuel for downtown and campus routes",
+        paymentMethod: "card" as const,
+    },
+    {
+        daysAgo: 6,
+        amountCents: 7200,
+        category: "Food",
+        vendorName: "River City Produce",
+        note: "Tortillas, herbs, and beverage restock",
+        paymentMethod: "card" as const,
+    },
+    {
+        daysAgo: 2,
+        amountCents: 5200,
+        category: "Maintenance",
+        vendorName: "Tiger Truck Repair",
+        note: "Generator tune-up and grill service",
+        paymentMethod: "other" as const,
+    },
+];
+
 export function DevConsole() {
     const [status, setStatus] = useState("idle");
     const [products, setProducts] = useState<Product[]>([]);
     const [orders, setOrders] = useState<Order[]>([]);
     const [users, setUsers] = useState<AccountUser[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
+    const [expenses, setExpenses] = useState<Expense[]>([]);
 
     const { accountId, loading: accountLoading, account } = useAccount();
+    const { user } = useAuth();
 
     if (accountLoading) {
         return (
@@ -60,6 +292,26 @@ export function DevConsole() {
             </p>
         );
     }
+
+    const dateDaysAgo = (daysAgo: number) => {
+        const date = new Date();
+        date.setDate(date.getDate() - daysAgo);
+        date.setHours(12, 0, 0, 0);
+        return Timestamp.fromDate(date);
+    };
+
+    const ensureAnalyticsProducts = async () => {
+        await Promise.all(
+            DEV_ANALYTICS_PRODUCTS.map((product) =>
+                createProduct({
+                    accountId,
+                    ...product,
+                }),
+            ),
+        );
+
+        return listProducts(accountId);
+    };
 
     const handleSeedAccountAndOwner = async () => {
         setStatus("Seeding account + owner...");
@@ -199,6 +451,101 @@ export function DevConsole() {
         }
     };
 
+    const handleSeedExpenses = async () => {
+        if (!user?.uid) {
+            setStatus("Cannot seed expenses without an authenticated user.");
+            return;
+        }
+
+        setStatus("Seeding demo expenses...");
+
+        try {
+            const now = new Date();
+            const dateDaysAgo = (daysAgo: number) => {
+                const date = new Date(now);
+                date.setDate(date.getDate() - daysAgo);
+                date.setHours(12, 0, 0, 0);
+                return Timestamp.fromDate(date);
+            };
+
+            await Promise.all([
+                createExpense(
+                    accountId,
+                    {
+                        amountCents: 18650,
+                        currency: "USD",
+                        date: dateDaysAgo(2),
+                        category: "Food",
+                        vendorName: "Capital Seafood Market",
+                        note: "Protein and produce restock before the weekend rush",
+                        paymentMethod: "card",
+                    },
+                    user.uid,
+                ),
+                createExpense(
+                    accountId,
+                    {
+                        amountCents: 7425,
+                        currency: "USD",
+                        date: dateDaysAgo(4),
+                        category: "Supplies",
+                        vendorName: "Restaurant Depot",
+                        note: "Takeout containers, napkins, and gloves",
+                        paymentMethod: "card",
+                    },
+                    user.uid,
+                ),
+                createExpense(
+                    accountId,
+                    {
+                        amountCents: 5900,
+                        currency: "USD",
+                        date: dateDaysAgo(7),
+                        category: "Fuel",
+                        vendorName: "Chevron Fleet",
+                        note: "Truck fuel top-up for campus and downtown service",
+                        paymentMethod: "card",
+                    },
+                    user.uid,
+                ),
+                createExpense(
+                    accountId,
+                    {
+                        amountCents: 12900,
+                        currency: "USD",
+                        date: dateDaysAgo(11),
+                        category: "Maintenance",
+                        vendorName: "Tiger Truck Repair",
+                        note: "Flat-top cleaning and generator service",
+                        paymentMethod: "other",
+                    },
+                    user.uid,
+                ),
+                createExpense(
+                    accountId,
+                    {
+                        amountCents: 3900,
+                        currency: "USD",
+                        date: dateDaysAgo(15),
+                        category: "Software",
+                        vendorName: "MenuMo Tools",
+                        note: "Monthly software subscriptions and POS utilities",
+                        paymentMethod: "card",
+                    },
+                    user.uid,
+                ),
+            ]);
+
+            const seededExpenses = await listExpenses(accountId, { limit: 25 });
+            console.log("✅ Expenses:", seededExpenses);
+            setExpenses(seededExpenses);
+            setStatus(`Expenses seeded successfully ✅ (${seededExpenses.length} loaded)`);
+        } catch (err) {
+            console.error("❌ Error seeding expenses:", err);
+            setStatus("Error seeding expenses – see console");
+        }
+    };
+
     const handleCreateDemoOrder = async () => {
         setStatus("Creating demo order...");
 
@@ -230,6 +577,97 @@ export function DevConsole() {
         } catch (err) {
             console.error("❌ Error creating order:", err);
             setStatus("Error creating order – see console");
+        }
+    };
+
+    const handleSeedAnalyticsScenario = async () => {
+        if (!user?.uid) {
+            setStatus("Cannot seed analytics without an authenticated user.");
+            return;
+        }
+
+        setStatus("Seeding analytics-friendly orders and expenses...");
+
+        try {
+            const seededProducts = await ensureAnalyticsProducts();
+            setProducts(seededProducts);
+
+            const productsById = new Map(
+                seededProducts.map((product) => [product.id, product]),
+            );
+
+            await Promise.all(
+                DEV_ANALYTICS_ORDER_PLAN.map((order) =>
+                    createOrderWithLineItems({
+                        accountId,
+                        channel: order.channel,
+                        status: "completed",
+                        paymentStatus: "paid",
+                        paymentMethod: "card",
+                        placedAt: dateDaysAgo(order.daysAgo),
+                        items: order.items.map((item) => {
+                            const product = productsById.get(item.productId);
+
+                            if (!product) {
+                                throw new Error(
+                                    `Missing product ${item.productId} while seeding analytics`,
+                                );
+                            }
+
+                            return {
+                                productId: item.productId,
+                                quantity: item.quantity,
+                                unitPrice: product.price,
+                            };
+                        }),
+                    }),
+                ),
+            );
+
+            await Promise.all(
+                DEV_ANALYTICS_EXPENSE_PLAN.map((expense) =>
+                    createExpense(
+                        accountId,
+                        {
+                            amountCents: expense.amountCents,
+                            currency: "USD",
+                            date: dateDaysAgo(expense.daysAgo),
+                            category: expense.category,
+                            vendorName: expense.vendorName,
+                            note: expense.note,
+                            paymentMethod: expense.paymentMethod,
+                        },
+                        user.uid,
+                    ),
+                ),
+            );
+
+            const [seededOrders, seededExpenses] = await Promise.all([
+                listOrders(accountId),
+                listExpenses(accountId, { limit: 25 }),
+            ]);
+
+            const seededRevenue = DEV_ANALYTICS_ORDER_PLAN.reduce((sum, order) => {
+                const orderTotal = order.items.reduce((itemSum, item) => {
+                    const product = productsById.get(item.productId);
+                    return itemSum + (product?.price ?? 0) * item.quantity;
+                }, 0);
+
+                return sum + orderTotal;
+            }, 0);
+            const seededExpenseTotal = DEV_ANALYTICS_EXPENSE_PLAN.reduce(
+                (sum, expense) => sum + expense.amountCents,
+                0,
+            );
+
+            setOrders(seededOrders);
+            setExpenses(seededExpenses);
+            setStatus(
+                `Analytics scenario seeded ✅ Added ${DEV_ANALYTICS_ORDER_PLAN.length} orders (~$${seededRevenue.toFixed(2)}) and $${(seededExpenseTotal / 100).toFixed(2)} in expenses.`,
+            );
+        } catch (err) {
+            console.error("❌ Error seeding analytics scenario:", err);
+            setStatus("Error seeding analytics scenario – see console");
         }
     };
 
@@ -266,6 +704,18 @@ export function DevConsole() {
         } catch (err) {
             console.error("❌ Error loading customers:", err);
             setStatus("Error loading customers – see console");
+        }
+    };
+
+    const handleLoadExpenses = async () => {
+        setStatus("Loading expenses...");
+        try {
+            const rows = await listExpenses(accountId, { limit: 25 });
+            setExpenses(rows);
+            setStatus("Expenses loaded ✅");
+        } catch (err) {
+            console.error("❌ Error loading expenses:", err);
+            setStatus("Error loading expenses – see console");
         }
     };
 
@@ -339,6 +789,10 @@ export function DevConsole() {
                                     <ShoppingCart className="mr-1 inline h-4 w-4" />
                                     {orders.length} Orders
                                 </span>
+                                <span className="rounded-full bg-white/20 px-3 py-1 text-sm backdrop-blur">
+                                    <DollarSign className="mr-1 inline h-4 w-4" />
+                                    {expenses.length} Expenses
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -356,6 +810,9 @@ export function DevConsole() {
                         <p className="mt-1 text-sm text-gray-500">
                             Seed test data and load current records into the console.
                         </p>
+                        <p className="mt-2 text-sm text-teal-700">
+                            For dashboard analytics, use <span className="font-semibold">Seed Analytics Scenario</span> to create a healthier revenue-to-expense mix.
+                        </p>
                     </div>
 
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -368,6 +825,12 @@ export function DevConsole() {
                         <button onClick={handleSeedCustomer} className={actionButtonClass()}>
                             Seed Demo Customer
                         </button>
+                        <button onClick={handleSeedExpenses} className={actionButtonClass()}>
+                            Seed Demo Expenses
+                        </button>
+                        <button onClick={handleSeedAnalyticsScenario} className={actionButtonClass()}>
+                            Seed Analytics Scenario
+                        </button>
                         <button onClick={handleCreateDemoOrder} className={actionButtonClass()}>
                             Create Demo Order
                         </button>
@@ -376,6 +839,9 @@ export function DevConsole() {
                         </button>
                         <button onClick={handleLoadCustomers} className={actionButtonClass()}>
                             Load Customers
+                        </button>
+                        <button onClick={handleLoadExpenses} className={actionButtonClass()}>
+                            Load Expenses
                         </button>
                         <button onClick={handleLoadOrders} className={actionButtonClass()}>
                             Load Orders
@@ -501,6 +967,31 @@ export function DevConsole() {
                                             </span>{" "}
                                             via {o.channel}
                                         </span>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </section>
+
+                    <section className={sectionCardClass()}>
+                        <div className="mb-3 flex items-center gap-2">
+                            <DollarSign className="h-4 w-4 text-emerald-600" />
+                            <h2 className="text-lg font-semibold text-gray-900">
+                                Expenses ({expenses.length})
+                            </h2>
+                        </div>
+
+                        {expenses.length === 0 ? (
+                            <p className="text-sm text-gray-500">No expenses loaded yet.</p>
+                        ) : (
+                            <ul className="space-y-2 text-sm text-gray-700">
+                                {expenses.map((expense) => (
+                                    <li key={expense.id} className="rounded-xl bg-gray-50 px-3 py-2">
+                                        <span className="font-semibold text-gray-900">
+                                            ${(expense.amountCents / 100).toFixed(2)}
+                                        </span>{" "}
+                                        — {expense.category}
+                                        {expense.vendorName ? ` • ${expense.vendorName}` : ""}
                                     </li>
                                 ))}
                             </ul>
