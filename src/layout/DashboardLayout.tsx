@@ -4,7 +4,6 @@ import { Button } from "../components/ui/button.tsx";
 import { useAuth } from "../auth/AuthContext";
 import { useAccount } from "../account/AccountContext";
 import {
-    Truck,
     ChefHat,
     Calendar,
     DollarSign,
@@ -197,9 +196,11 @@ export function DashboardLayout({
                             </Button>
 
                             <div className="flex items-center gap-2">
-                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-teal-600 to-teal-700">
-                                    <Truck className="h-5 w-5 text-white" />
-                                </div>
+                                <img
+                                    src="/menumo-logo.png"
+                                    alt="Menumo"
+                                    className="h-8 w-8 rounded-lg object-cover"
+                                />
 
                                 <span
                                     className="text-xl font-bold text-gray-900"
@@ -320,9 +321,11 @@ export function DashboardLayout({
                         <aside className="fixed bottom-0 left-0 top-0 z-50 w-64 bg-white shadow-xl lg:hidden">
                             <div className="flex items-center justify-between border-b border-gray-200 p-4">
                                 <div className="flex items-center gap-2">
-                                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-teal-600 to-teal-700">
-                                        <Truck className="h-5 w-5 text-white" />
-                                    </div>
+                                    <img
+                                        src="/menumo-logo.png"
+                                        alt="Menumo"
+                                        className="h-8 w-8 rounded-lg object-cover"
+                                    />
                                     <span
                                         className="text-xl font-bold text-gray-900"
                                         style={{ fontFamily: "Poppins, sans-serif" }}
