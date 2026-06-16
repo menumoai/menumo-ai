@@ -1,43 +1,33 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { Brain, ChevronDown, Sparkles, X } from "lucide-react";
+import {
+    AlertTriangle,
+    Brain,
+    ChevronDown,
+    Loader2,
+    RefreshCw,
+    Sparkles,
+    X,
+} from "lucide-react";
 
-type CompanionActionStyle = "primary" | "secondary";
-type CompanionCategory =
-    | "revenue"
-    | "menu"
-    | "orders"
-    | "expenses"
-    | "locations"
-    | "operations";
-type CompanionUrgency = "now" | "soon" | "idea";
-
-interface SuggestionAction {
-    label: string;
-    style: CompanionActionStyle;
-    effect: string;
-}
-
-interface CompanionSuggestion {
-    id: string;
-    icon: string;
-    title: string;
-    description: string;
-    detail: string;
-    projectedValue: string;
-    category: CompanionCategory;
-    urgency: CompanionUrgency;
-    actions: SuggestionAction[];
-}
+import { useAccount } from "../../account/AccountContext";
+import { useAnalyticsSnapshot } from "../../hooks/useAnalyticsSnapshot";
+import { computeRevenueAnalytics } from "../../analysis/revenue";
+import {
+    buildCompanionSummary,
+    fetchCompanionSuggestions,
+} from "./companionClient";
+import type {
+    CompanionCategory,
+    CompanionSuggestion,
+    CompanionUrgency,
+} from "./companionClient";
 
 interface ToastMessage {
     id: string;
     message: string;
     type: "success" | "info";
 }
-
-const DEMO_ENABLED =
-    import.meta.env.DEV || import.meta.env.VITE_AI_COMPANION_DEMO === "true";
 
 const urgencyBadgeClass: Record<CompanionUrgency, string> = {
     now: "bg-rose-100 text-rose-700 border border-rose-200",
@@ -60,233 +50,6 @@ const categoryLabel: Record<CompanionCategory, string> = {
     operations: "Ops",
 };
 
-const suggestionsByContext: Record<string, CompanionSuggestion[]> = {
-    dashboard: [
-        {
-            id: "dashboard-lunch-prep",
-            icon: "🌮",
-            title: "Lunch rush looks heavier than usual",
-            description:
-                "Demo forecast suggests prepping one extra birria pan before 11:30 so the line keeps moving through the noon peak.",
-            detail:
-                "This is a demo suggestion tied to the dashboard view. In a real version, it would look at order timing, item mix, and day-over-day lunch demand before recommending a prep move.",
-            projectedValue: "+8 to 12 faster orders",
-            category: "operations",
-            urgency: "now",
-            actions: [
-                { label: "Mark as prep plan", style: "primary", effect: "prep_plan" },
-                { label: "Dismiss", style: "secondary", effect: "dismiss" },
-            ],
-        },
-        {
-            id: "dashboard-price-nudge",
-            icon: "💸",
-            title: "Birria Taco can likely take a small price nudge",
-            description:
-                "Try a demo +$0.50 test on your strongest seller and watch whether the average ticket rises without changing conversion.",
-            detail:
-                "The real production version would pair revenue trends with item-level margin. For now this is a demo insight meant to show how the assistant could tee up invisible pricing nudges.",
-            projectedValue: "+$90/week",
-            category: "revenue",
-            urgency: "soon",
-            actions: [
-                { label: "Save experiment note", style: "primary", effect: "save_note" },
-                { label: "Show why", style: "secondary", effect: "show_why" },
-            ],
-        },
-    ],
-    orders: [
-        {
-            id: "orders-upsell",
-            icon: "🧾",
-            title: "Pickup orders are a good upsell window",
-            description:
-                "Demo pattern: attach chips + drink to orders above one entree and lift ticket size with a one-tap cashier script.",
-            detail:
-                "This prototype keeps the action local and illustrative. A real version would inspect order composition and identify the highest-converting add-on pairings for your truck.",
-            projectedValue: "+$2.40 AOV",
-            category: "orders",
-            urgency: "soon",
-            actions: [
-                { label: "Save cashier prompt", style: "primary", effect: "save_prompt" },
-                { label: "Dismiss", style: "secondary", effect: "dismiss" },
-            ],
-        },
-        {
-            id: "orders-batch-prep",
-            icon: "⏱️",
-            title: "Batch one high-volume item before the next wave",
-            description:
-                "Demo suggestion: pre-stage tortillas and consommé cups now so prep time stays tight when a cluster of pickup orders lands.",
-            detail:
-                "This is route-aware demo guidance for the orders workflow. A live version would watch recent cadence and prep-time data before nudging the team.",
-            projectedValue: "-45 sec per order",
-            category: "operations",
-            urgency: "now",
-            actions: [
-                { label: "Mark ready", style: "primary", effect: "prep_ready" },
-                { label: "Dismiss", style: "secondary", effect: "dismiss" },
-            ],
-        },
-    ],
-    menu: [
-        {
-            id: "menu-combo",
-            icon: "🔥",
-            title: "A simple combo could surface your best seller",
-            description:
-                "Bundle Birria Taco + Street Corn for a demo featured combo so the menu does more of the upsell work for you.",
-            detail:
-                "The prototype mirrors the light-touch combo idea from Profitpilot but reframes it for Menumo AI's menu workflow. No real menu changes happen yet.",
-            projectedValue: "+$140/week",
-            category: "menu",
-            urgency: "idea",
-            actions: [
-                { label: "Save combo idea", style: "primary", effect: "save_combo" },
-                { label: "Dismiss", style: "secondary", effect: "dismiss" },
-            ],
-        },
-        {
-            id: "menu-anchor-price",
-            icon: "📋",
-            title: "Feature one high-margin item near the top",
-            description:
-                "Move a strong-margin item into your top three menu slots and pair it with a subtle +$0.25 or +$0.50 test.",
-            detail:
-                "This suggestion stays within the 'small nudge' pattern from the original prototype. In production it would be backed by item-level contribution margin and conversion data.",
-            projectedValue: "+3% item mix share",
-            category: "revenue",
-            urgency: "soon",
-            actions: [
-                { label: "Save display note", style: "primary", effect: "save_display" },
-                { label: "Show why", style: "secondary", effect: "show_why" },
-            ],
-        },
-    ],
-    expenses: [
-        {
-            id: "expenses-packaging",
-            icon: "📦",
-            title: "Packaging costs deserve a quick audit",
-            description:
-                "Demo cue: if takeout volume is climbing, compare container spend against recent revenue growth before it quietly erodes margin.",
-            detail:
-                "This is intentionally plain-English and action-light. A real version would compare expense categories against order mix and surface outliers automatically.",
-            projectedValue: "Protect 1 to 2 margin points",
-            category: "expenses",
-            urgency: "soon",
-            actions: [
-                { label: "Add audit reminder", style: "primary", effect: "add_reminder" },
-                { label: "Dismiss", style: "secondary", effect: "dismiss" },
-            ],
-        },
-        {
-            id: "expenses-portioning",
-            icon: "🥄",
-            title: "Tighten portioning on one costly ingredient",
-            description:
-                "Pick one protein or topping this week and spot-check scoop consistency so food cost drift does not compound.",
-            detail:
-                "This mirrors the prototype's waste-conscious tone while keeping the suggestion relevant to Menumo AI's current expense tooling.",
-            projectedValue: "Less waste",
-            category: "operations",
-            urgency: "idea",
-            actions: [
-                { label: "Save ops note", style: "primary", effect: "save_note" },
-                { label: "Dismiss", style: "secondary", effect: "dismiss" },
-            ],
-        },
-    ],
-    analytics: [
-        {
-            id: "analytics-lunch-window",
-            icon: "📈",
-            title: "The strongest revenue window should shape staffing",
-            description:
-                "If lunch is carrying the week, shift setup earlier and get one more pair of hands ready right before the peak.",
-            detail:
-                "This is demo analysis surfaced on the analytics page. A real version would derive the recommendation from hourly revenue concentration and recent order throughput.",
-            projectedValue: "+5 to 8 served orders",
-            category: "revenue",
-            urgency: "soon",
-            actions: [
-                { label: "Save staffing note", style: "primary", effect: "save_staffing" },
-                { label: "Show why", style: "secondary", effect: "show_why" },
-            ],
-        },
-        {
-            id: "analytics-mix",
-            icon: "⭐",
-            title: "One side item could ride your hero item’s demand",
-            description:
-                "Attach your highest-margin side to the product already winning share instead of spreading promos across the full menu.",
-            detail:
-                "The assistant is using a focused, practical pattern here: find the winner, then piggyback on it. That makes the prototype feel specific without needing backend AI orchestration.",
-            projectedValue: "+$60/week",
-            category: "menu",
-            urgency: "idea",
-            actions: [
-                { label: "Save pairing note", style: "primary", effect: "save_pairing" },
-                { label: "Dismiss", style: "secondary", effect: "dismiss" },
-            ],
-        },
-    ],
-    locations: [
-        {
-            id: "locations-extend-shift",
-            icon: "📍",
-            title: "One stop may deserve a longer window",
-            description:
-                "If a spot consistently stays busy late, extend service by 30 to 45 minutes before adding a whole new location.",
-            detail:
-                "This keeps the prototype grounded in a truck operator decision: maximize the winner before splitting focus. A real model would compare foot-traffic and order density by location.",
-            projectedValue: "+$110/shift",
-            category: "locations",
-            urgency: "idea",
-            actions: [
-                { label: "Save route note", style: "primary", effect: "save_route" },
-                { label: "Dismiss", style: "secondary", effect: "dismiss" },
-            ],
-        },
-    ],
-    dev: [
-        {
-            id: "dev-seed-data",
-            icon: "🛠️",
-            title: "Seed a fuller demo account for better AI previews",
-            description:
-                "The companion works best with a realistic menu, several recent orders, and a few expense rows loaded into the demo account.",
-            detail:
-                "This dev-only suggestion acknowledges the current prototype setup and helps testers understand how to make the companion feel more alive during QA.",
-            projectedValue: "Higher-fidelity demo",
-            category: "operations",
-            urgency: "now",
-            actions: [
-                { label: "Got it", style: "primary", effect: "acknowledge" },
-                { label: "Dismiss", style: "secondary", effect: "dismiss" },
-            ],
-        },
-    ],
-    default: [
-        {
-            id: "default-context",
-            icon: "✨",
-            title: "This companion is route-aware and demo-backed",
-            description:
-                "Move through Menu, Orders, Dashboard, Expenses, Analytics, or Locations to see context-specific suggestions.",
-            detail:
-                "This first Menumo AI port intentionally keeps the prototype client-side. The next step would be replacing handwritten suggestions with heuristics or a real model pipeline.",
-            projectedValue: "Prototype ready",
-            category: "operations",
-            urgency: "idea",
-            actions: [
-                { label: "Understood", style: "primary", effect: "acknowledge" },
-                { label: "Dismiss", style: "secondary", effect: "dismiss" },
-            ],
-        },
-    ],
-};
-
 function getContextKey(pathname: string) {
     if (pathname.startsWith("/dashboard")) return "dashboard";
     if (pathname.startsWith("/orders")) return "orders";
@@ -298,40 +61,85 @@ function getContextKey(pathname: string) {
     return "default";
 }
 
-function getSuccessMessage(effect: string) {
-    const messages: Record<string, string> = {
-        acknowledge: "Noted. The companion will stay tucked away until you need it.",
-        add_reminder: "Audit reminder saved to your demo workflow.",
-        prep_plan: "Prep plan note saved for the next rush.",
-        prep_ready: "Prep checkpoint marked as ready.",
-        save_combo: "Combo idea saved to the demo playbook.",
-        save_display: "Menu display note saved.",
-        save_note: "Ops note saved to the demo workflow.",
-        save_pairing: "Pairing idea saved for review.",
-        save_prompt: "Cashier prompt saved.",
-        save_route: "Route note saved.",
-        save_staffing: "Staffing note saved.",
-        show_why: "This demo version does not expose the full reasoning trace yet.",
-    };
-
-    return messages[effect] ?? "Demo action saved.";
-}
-
 export function AiCompanion() {
     const location = useLocation();
+    const { accountId } = useAccount();
     const [open, setOpen] = useState(false);
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [appliedActions, setAppliedActions] = useState<Set<string>>(new Set());
     const [toasts, setToasts] = useState<ToastMessage[]>([]);
+    const [suggestions, setSuggestions] = useState<CompanionSuggestion[]>([]);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    // The context key the current result (success OR error) was resolved for,
+    // so we can derive the loading flag without a synchronous setState.
+    const [resolvedKey, setResolvedKey] = useState<string | null>(null);
+    const [retryNonce, setRetryNonce] = useState(0);
 
-    const suggestions = useMemo(() => {
-        const contextKey = getContextKey(location.pathname);
-        return suggestionsByContext[contextKey] ?? suggestionsByContext.default;
-    }, [location.pathname]);
+    const contextKey = useMemo(
+        () => getContextKey(location.pathname),
+        [location.pathname],
+    );
+
+    // Only load the account's analytics once the panel is open, so we don't
+    // fetch Firestore data (or spend tokens) on every authenticated page view.
+    const { snapshot, loading: snapshotLoading } = useAnalyticsSnapshot(
+        open ? accountId : null,
+    );
+    const hasData = snapshot.orders.length > 0;
+
+    const summary = useMemo(
+        () =>
+            hasData
+                ? buildCompanionSummary(computeRevenueAnalytics(snapshot))
+                : null,
+        [snapshot, hasData],
+    );
+
+    // Loading whenever the panel is open and we're still resolving insights for
+    // the current route (snapshot loading, or the LLM request in flight).
+    const loadingInsights =
+        open &&
+        ((snapshotLoading && accountId !== null) ||
+            (summary !== null && resolvedKey !== contextKey));
 
     const unappliedCount = suggestions.filter(
         (suggestion) => !appliedActions.has(suggestion.id),
     ).length;
+
+    // Fetch route-aware AI insights when the panel is open and we have data.
+    // There is no static fallback — errors surface in the UI.
+    useEffect(() => {
+        if (!open || !summary) {
+            return;
+        }
+
+        const controller = new AbortController();
+
+        fetchCompanionSuggestions(contextKey, summary, controller.signal)
+            .then((result) => {
+                setSuggestions(result);
+                setErrorMessage(null);
+                setResolvedKey(contextKey);
+            })
+            .catch((error: unknown) => {
+                if (
+                    controller.signal.aborted ||
+                    (error instanceof DOMException && error.name === "AbortError")
+                ) {
+                    return;
+                }
+                console.error("Failed to load AI companion insights", error);
+                setSuggestions([]);
+                setErrorMessage(
+                    error instanceof Error
+                        ? error.message
+                        : "Something went wrong generating insights.",
+                );
+                setResolvedKey(contextKey);
+            });
+
+        return () => controller.abort();
+    }, [open, contextKey, summary, retryNonce]);
 
     useEffect(() => {
         if (toasts.length === 0) return;
@@ -343,10 +151,6 @@ export function AiCompanion() {
         return () => window.clearTimeout(timeoutId);
     }, [toasts]);
 
-    if (!DEMO_ENABLED) {
-        return null;
-    }
-
     function addToast(message: string, type: ToastMessage["type"]) {
         setToasts((current) => [
             ...current,
@@ -354,22 +158,26 @@ export function AiCompanion() {
         ]);
     }
 
-    function handleAction(suggestion: CompanionSuggestion, effect: string) {
-        if (effect === "dismiss") {
-            setAppliedActions((current) => new Set(current).add(suggestion.id));
-            addToast(`Dismissed "${suggestion.title}".`, "info");
-            return;
-        }
+    function retryInsights() {
+        setErrorMessage(null);
+        setResolvedKey(null);
+        setRetryNonce((nonce) => nonce + 1);
+    }
 
-        if (effect === "show_why") {
-            addToast(getSuccessMessage(effect), "info");
-            return;
-        }
-
+    function handleAction(suggestion: CompanionSuggestion) {
         setAppliedActions((current) => new Set(current).add(suggestion.id));
         setExpandedId(null);
-        addToast(getSuccessMessage(effect), "success");
+        addToast(`Dismissed "${suggestion.title}".`, "info");
     }
+
+    const showEmptyNoData =
+        open && !loadingInsights && !errorMessage && summary === null;
+    const showEmptyNoSuggestions =
+        open &&
+        !loadingInsights &&
+        !errorMessage &&
+        summary !== null &&
+        suggestions.length === 0;
 
     return (
         <>
@@ -411,7 +219,7 @@ export function AiCompanion() {
                     </span>
                     <span className="hidden sm:inline">AI Companion</span>
                     <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-white/90">
-                        Demo
+                        AI
                     </span>
                 </button>
             )}
@@ -429,15 +237,19 @@ export function AiCompanion() {
                                         AI Companion
                                     </h3>
                                     <p className="mt-1 text-lg font-semibold">
-                                        {unappliedCount} route-aware demo suggestion
-                                        {unappliedCount === 1 ? "" : "s"}
+                                        {loadingInsights
+                                            ? "Analyzing your data…"
+                                            : errorMessage
+                                              ? "Couldn't load insights"
+                                              : suggestions.length > 0
+                                                ? `${unappliedCount} live suggestion${
+                                                      unappliedCount === 1 ? "" : "s"
+                                                  }`
+                                                : "No suggestions yet"}
                                     </p>
                                     <p className="mt-1 text-sm text-teal-50">
-                                        Visible in dev or when
-                                        {" "}
-                                        <code className="rounded bg-white/15 px-1.5 py-0.5 text-[11px]">
-                                            VITE_AI_COMPANION_DEMO=true
-                                        </code>
+                                        Generated by Claude from your live orders,
+                                        menu, and expenses.
                                     </p>
                                 </div>
                             </div>
@@ -452,101 +264,162 @@ export function AiCompanion() {
                         </div>
                     </div>
 
-                    <div className="border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs text-slate-600">
-                        This first port keeps suggestions client-side and demo-backed while adapting the
-                        Profitpilot prototype to Menumo AI&apos;s authenticated shell.
-                    </div>
-
                     <div className="flex-1 space-y-3 overflow-y-auto p-4">
-                        {suggestions.map((suggestion) => {
-                            const applied = appliedActions.has(suggestion.id);
-                            const expanded = expandedId === suggestion.id;
+                        {loadingInsights && (
+                            <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm text-slate-600 shadow-sm">
+                                <Loader2 className="h-4 w-4 animate-spin text-teal-600" />
+                                <span>Analyzing your latest data…</span>
+                            </div>
+                        )}
 
-                            return (
-                                <div
-                                    key={suggestion.id}
-                                    className={`rounded-2xl border transition ${
-                                        applied
-                                            ? "border-slate-200 bg-slate-50 opacity-75"
-                                            : "border-slate-200 bg-white shadow-sm"
-                                    }`}
-                                >
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            setExpandedId((current) =>
-                                                current === suggestion.id ? null : suggestion.id,
-                                            )
-                                        }
-                                        className="w-full px-4 py-4 text-left"
-                                    >
-                                        <div className="flex items-start gap-3">
-                                            <div className="text-2xl">{suggestion.icon}</div>
-                                            <div className="min-w-0 flex-1">
-                                                <div className="mb-2 flex flex-wrap items-center gap-2">
-                                                    <span
-                                                        className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${urgencyBadgeClass[suggestion.urgency]}`}
-                                                    >
-                                                        {urgencyLabel[suggestion.urgency]}
-                                                    </span>
-                                                    <span className="text-xs font-medium text-slate-500">
-                                                        {categoryLabel[suggestion.category]}
-                                                    </span>
-                                                    <span className="ml-auto text-xs font-semibold text-teal-700">
-                                                        {suggestion.projectedValue}
-                                                    </span>
-                                                </div>
-                                                <div className="flex items-start gap-2">
-                                                    <div className="min-w-0 flex-1">
-                                                        <h4 className="text-sm font-semibold text-slate-900">
-                                                            {suggestion.title}
-                                                        </h4>
-                                                        <p className="mt-1 text-sm leading-6 text-slate-600">
-                                                            {suggestion.description}
-                                                        </p>
-                                                    </div>
-                                                    <ChevronDown
-                                                        className={`mt-1 h-4 w-4 shrink-0 text-slate-400 transition ${
-                                                            expanded ? "rotate-180" : ""
-                                                        }`}
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </button>
-
-                                    {expanded && (
-                                        <div className="border-t border-slate-200 px-4 py-4">
-                                            <p className="whitespace-pre-wrap text-sm leading-6 text-slate-600">
-                                                {suggestion.detail}
-                                            </p>
-
-                                            <div className="mt-4 flex flex-wrap gap-2">
-                                                {suggestion.actions.map((action) => (
-                                                    <button
-                                                        key={action.effect}
-                                                        type="button"
-                                                        onClick={() =>
-                                                            handleAction(suggestion, action.effect)
-                                                        }
-                                                        disabled={applied}
-                                                        className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
-                                                            action.style === "primary"
-                                                                ? "bg-teal-600 text-white hover:bg-teal-700 disabled:bg-slate-300"
-                                                                : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:text-slate-400"
-                                                        }`}
-                                                    >
-                                                        {applied && action.style === "primary"
-                                                            ? "Applied"
-                                                            : action.label}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
+                        {!loadingInsights && errorMessage && (
+                            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-800 shadow-sm">
+                                <div className="flex items-start gap-3">
+                                    <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" />
+                                    <div className="min-w-0 flex-1">
+                                        <p className="font-semibold">
+                                            Couldn&apos;t generate insights
+                                        </p>
+                                        <p className="mt-1 leading-6 text-rose-700">
+                                            {errorMessage}
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={retryInsights}
+                                            className="mt-3 inline-flex items-center gap-2 rounded-xl bg-rose-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-rose-700"
+                                        >
+                                            <RefreshCw className="h-4 w-4" />
+                                            Try again
+                                        </button>
+                                    </div>
                                 </div>
-                            );
-                        })}
+                            </div>
+                        )}
+
+                        {showEmptyNoData && (
+                            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-600 shadow-sm">
+                                <Sparkles className="mx-auto mb-2 h-5 w-5 text-teal-600" />
+                                <p className="font-semibold text-slate-800">
+                                    No orders to analyze yet
+                                </p>
+                                <p className="mt-1 leading-6">
+                                    Once this account has orders, the companion
+                                    will generate live, data-backed suggestions.
+                                </p>
+                            </div>
+                        )}
+
+                        {showEmptyNoSuggestions && (
+                            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-600 shadow-sm">
+                                <p className="font-semibold text-slate-800">
+                                    Nothing to flag right now
+                                </p>
+                                <p className="mt-1 leading-6">
+                                    The data looks steady. Check back after more
+                                    orders come in.
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={retryInsights}
+                                    className="mt-3 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                                >
+                                    <RefreshCw className="h-4 w-4" />
+                                    Refresh
+                                </button>
+                            </div>
+                        )}
+
+                        {!loadingInsights &&
+                            !errorMessage &&
+                            suggestions.map((suggestion) => {
+                                const applied = appliedActions.has(suggestion.id);
+                                const expanded = expandedId === suggestion.id;
+
+                                return (
+                                    <div
+                                        key={suggestion.id}
+                                        className={`rounded-2xl border transition ${
+                                            applied
+                                                ? "border-slate-200 bg-slate-50 opacity-75"
+                                                : "border-slate-200 bg-white shadow-sm"
+                                        }`}
+                                    >
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setExpandedId((current) =>
+                                                    current === suggestion.id ? null : suggestion.id,
+                                                )
+                                            }
+                                            className="w-full px-4 py-4 text-left"
+                                        >
+                                            <div className="flex items-start gap-3">
+                                                <div className="text-2xl">{suggestion.icon}</div>
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                                                        <span
+                                                            className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${urgencyBadgeClass[suggestion.urgency]}`}
+                                                        >
+                                                            {urgencyLabel[suggestion.urgency]}
+                                                        </span>
+                                                        <span className="text-xs font-medium text-slate-500">
+                                                            {categoryLabel[suggestion.category]}
+                                                        </span>
+                                                        <span className="ml-auto text-xs font-semibold text-teal-700">
+                                                            {suggestion.projectedValue}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-start gap-2">
+                                                        <div className="min-w-0 flex-1">
+                                                            <h4 className="text-sm font-semibold text-slate-900">
+                                                                {suggestion.title}
+                                                            </h4>
+                                                            <p className="mt-1 text-sm leading-6 text-slate-600">
+                                                                {suggestion.description}
+                                                            </p>
+                                                        </div>
+                                                        <ChevronDown
+                                                            className={`mt-1 h-4 w-4 shrink-0 text-slate-400 transition ${
+                                                                expanded ? "rotate-180" : ""
+                                                            }`}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </button>
+
+                                        {expanded && (
+                                            <div className="border-t border-slate-200 px-4 py-4">
+                                                <p className="whitespace-pre-wrap text-sm leading-6 text-slate-600">
+                                                    {suggestion.detail}
+                                                </p>
+
+                                                <div className="mt-4 flex flex-wrap gap-2">
+                                                    {suggestion.actions.map((action) => (
+                                                        <button
+                                                            key={action.effect}
+                                                            type="button"
+                                                            onClick={() =>
+                                                                handleAction(suggestion)
+                                                            }
+                                                            disabled={applied}
+                                                            className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
+                                                                action.style === "primary"
+                                                                    ? "bg-teal-600 text-white hover:bg-teal-700 disabled:bg-slate-300"
+                                                                    : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:text-slate-400"
+                                                            }`}
+                                                        >
+                                                            {applied && action.style === "primary"
+                                                                ? "Applied"
+                                                                : action.label}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
                     </div>
                 </div>
             )}
