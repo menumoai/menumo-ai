@@ -27,6 +27,7 @@ export async function createProduct(params: {
   menuType?: Product["menuType"];
   stockUnit?: Product["stockUnit"];
   currentStock?: number;
+  reorderPoint?: number | null;
   prepTimeSeconds?: number;
 }) {
   const {
@@ -41,6 +42,7 @@ export async function createProduct(params: {
     menuType = "food",
     stockUnit = "each",
     currentStock,
+    reorderPoint,
     prepTimeSeconds,
   } = params;
 
@@ -61,6 +63,7 @@ export async function createProduct(params: {
       menuType,
       stockUnit,
       currentStock: currentStock ?? null,
+      reorderPoint: reorderPoint ?? null,
       prepTimeSeconds: prepTimeSeconds ?? null,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -99,6 +102,7 @@ export async function updateProduct(params: {
   menuType?: Product["menuType"];
   stockUnit?: Product["stockUnit"];
   currentStock?: number;
+  reorderPoint?: number | null;
   prepTimeSeconds?: number;
 }) {
   const {
@@ -113,6 +117,7 @@ export async function updateProduct(params: {
     menuType,
     stockUnit,
     currentStock,
+    reorderPoint,
     prepTimeSeconds,
   } = params;
 
@@ -128,7 +133,24 @@ export async function updateProduct(params: {
     ...(menuType ? { menuType } : {}),
     ...(stockUnit ? { stockUnit } : {}),
     ...(typeof currentStock === "number" ? { currentStock } : {}),
+    ...(reorderPoint !== undefined ? { reorderPoint } : {}),
     ...(typeof prepTimeSeconds === "number" ? { prepTimeSeconds } : {}),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Focused setter for a product's low-stock threshold, used by the inventory
+ * page's inline editor. Pass null to stop tracking a reorder point.
+ */
+export async function setProductReorderPoint(
+  accountId: string,
+  productId: string,
+  reorderPoint: number | null
+): Promise<void> {
+  const ref = doc(productsCol(accountId), productId);
+  await updateDoc(ref, {
+    reorderPoint,
     updatedAt: serverTimestamp(),
   });
 }

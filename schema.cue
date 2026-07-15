@@ -126,6 +126,7 @@ package servedup
 
     currentStock?:     #Quantity
     stockUnit?:       *"each" | "lb" | "oz" | "liter" | "pack"
+    reorderPoint?:    #Quantity  // low-stock threshold; unset = untracked
     prepTimeSeconds?: number  // PrepTimeEst
 
     createdAt:  #Timestamp

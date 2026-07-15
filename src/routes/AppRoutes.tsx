@@ -2,6 +2,7 @@ import { Routes, Route } from "react-router-dom";
 import { LandingPage } from "../pages/LandingPage";
 import { AuthPage } from "../pages/AuthPage";
 import { MenuPage } from "../pages/MenuPage";
+import InventoryPage from "../pages/InventoryPage";
 import { OrdersPage } from "../pages/OrdersPage";
 import { CreateOrderPage } from "../pages/CreateOrderPage";
 import { DashboardPage } from "../pages/DashboardPage";
@@ -31,6 +32,14 @@ export function AppRoutes() {
                 element={
                     <BusinessRoute>
                         <MenuPage />
+                    </BusinessRoute>
+                }
+            />
+            <Route
+                path="/inventory"
+                element={
+                    <BusinessRoute>
+                        <InventoryPage />
                     </BusinessRoute>
                 }
             />

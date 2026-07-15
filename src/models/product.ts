@@ -40,6 +40,7 @@ export interface Product {
 
     currentStock?: number;
     stockUnit?: StockUnit;
+    reorderPoint?: number | null;   // low-stock threshold; null/undefined = untracked
     prepTimeSeconds?: number;
 
     optionGroups?: ProductOptionGroup[];

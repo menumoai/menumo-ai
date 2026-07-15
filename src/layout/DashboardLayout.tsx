@@ -28,6 +28,7 @@ import {
     HelpCircle,
     UtensilsCrossed,
     MapPin,
+    Boxes,
 } from "lucide-react";
 
 interface DashboardLayoutProps {
@@ -175,6 +176,7 @@ export function DashboardLayout({
         { path: "/finance", label: "Finance", icon: Receipt },
         { path: "/orders", label: "Orders", icon: UtensilsCrossed },
         { path: "/menu", label: "Menu", icon: ChefHat },
+        { path: "/inventory", label: "Inventory", icon: Boxes },
         { path: "/expenses", label: "Expenses", icon: DollarSign },
         { path: "/locations", label: "Locations", icon: MapPin },
         { path: "/dev", label: "Dev Console", icon: BarChart3 },
