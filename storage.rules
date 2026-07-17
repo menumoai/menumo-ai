@@ -1,0 +1,41 @@
+rules_version = '2';
+
+// Firebase Cloud Storage security rules for Menumo.
+//
+// Deploy:  firebase deploy --only storage --project <your-project-id>
+// Or paste this file into Firebase console -> Storage -> Rules -> Publish.
+//
+// Storage is currently used only for inventory receipt/invoice images uploaded
+// by the receipt-scan (OCR) flow. Anything not matched below is denied by the
+// default-deny of rules_version 2.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Receipt / invoice images: accounts/{accountId}/receipts/{fileName}
+    // Written by src/services/receiptStorage.ts (uploadReceiptImage).
+    match /accounts/{accountId}/receipts/{fileName} {
+
+      // A signed-in user may access an account's receipts if they own the
+      // account (accountId == their uid) or are a member of it. Membership
+      // mirrors the Firestore model: a doc at accounts/{accountId}/users/{uid},
+      // whose id is the auth uid (see src/services/users.ts).
+      function isAccountMember() {
+        return request.auth != null && (
+          request.auth.uid == accountId ||
+          firestore.exists(
+            /databases/(default)/documents/accounts/$(accountId)/users/$(request.auth.uid)
+          )
+        );
+      }
+
+      allow read: if isAccountMember();
+
+      // Uploads must be an image and capped at 15 MB (a phone photo is well
+      // under this). The app never deletes receipts, so delete stays denied.
+      allow write: if isAccountMember()
+        && request.resource.contentType.matches('image/.*')
+        && request.resource.size < 15 * 1024 * 1024;
+    }
+  }
+}
