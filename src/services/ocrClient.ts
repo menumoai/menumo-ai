@@ -100,7 +100,7 @@ export async function extractReceiptFromImage(
         try {
             serverMessage = (await response.json())?.error;
         } catch {
-            // Non-JSON error body — fall back to a status-based message.
+            // Non-JSON error body - fall back to a status-based message.
         }
         throw new OcrRequestError(
             serverMessage ?? `Request failed (${response.status}).`,

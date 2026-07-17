@@ -31,13 +31,6 @@ export function defaultShelfLifeDays(category: PerishableCategory): number {
     return SHELF_LIFE_DEFAULTS[category] ?? SHELF_LIFE_DEFAULTS.other;
 }
 
-/** Coerce an arbitrary/OCR-suggested string to a known category ("other" fallback). */
-export function normalizePerishableCategory(raw: string | null | undefined): PerishableCategory {
-    const value = (raw ?? "").trim().toLowerCase();
-    if (value in SHELF_LIFE_DEFAULTS) return value as PerishableCategory;
-    return "other";
-}
-
 /** `receivedAt` + `shelfLifeDays`, as a Date. Services convert to a Timestamp. */
 export function computeExpiresAt(receivedAt: Date, shelfLifeDays: number): Date {
     return new Date(receivedAt.getTime() + shelfLifeDays * DAY_MS);

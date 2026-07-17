@@ -130,8 +130,12 @@ export default function InventoryPage() {
             await reload();
         } catch (caught) {
             console.error("Failed to log received inventory", caught);
+            // The intake writes per line and is not atomic, so some items may
+            // already be logged. Reload so the page reflects whatever landed and
+            // warn the owner to check before retrying, to avoid double-logging.
+            await reload();
             setActionError(
-                "Could not save these items. Your changes were not logged."
+                "Something went wrong while saving. Some items may already be logged - check your stock before retrying."
             );
         } finally {
             setSavingReceipt(false);

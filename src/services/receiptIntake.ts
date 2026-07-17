@@ -71,8 +71,15 @@ export async function logReceivedInventory(
     });
 
     if (imageFile) {
-        const url = await uploadReceiptImage(accountId, transactionId, imageFile);
-        await setSupplierReceiptImageUrl(accountId, transactionId, url);
+        // Best-effort: a Storage failure (e.g. rules not yet configured) must not
+        // stop the batches from being logged. The receipt image is an audit aid,
+        // not a prerequisite for tracking stock.
+        try {
+            const url = await uploadReceiptImage(accountId, transactionId, imageFile);
+            await setSupplierReceiptImageUrl(accountId, transactionId, url);
+        } catch (err) {
+            console.warn("Receipt image upload failed; logging without it", err);
+        }
     }
 
     const batchIds: string[] = [];

@@ -56,9 +56,22 @@ function toDateInputValue(d: Date): string {
     return `${yyyy}-${mm}-${dd}`;
 }
 
+/**
+ * Parse a "YYYY-MM-DD" value as LOCAL midnight. `new Date("YYYY-MM-DD")` parses
+ * as UTC, which then shifts back a day when read/written with local getters and
+ * setters (getDate, setHours, toLocaleDateString) in negative-UTC timezones -
+ * off by one for US users. Building the Date from local parts keeps the picked
+ * day stable through the whole seed -> preview -> save round trip.
+ */
+function parseDateInput(value: string): Date | null {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+    if (!m) return null;
+    const dt = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
 function parseReceiptDate(iso: string): Date {
-    const parsed = iso ? new Date(iso) : new Date();
-    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+    return parseDateInput(iso) ?? new Date();
 }
 
 function normalizeUnit(unit: string): StockUnit {
@@ -161,10 +174,10 @@ export function ReceiptReviewDialog({
         [products]
     );
 
-    const baseDate = useMemo(() => {
-        const d = new Date(dateStr);
-        return Number.isNaN(d.getTime()) ? new Date() : d;
-    }, [dateStr]);
+    const baseDate = useMemo(
+        () => parseDateInput(dateStr) ?? new Date(),
+        [dateStr]
+    );
 
     function updateRow(key: string, patch: Partial<EditableRow>) {
         setRows((prev) =>
