@@ -32,6 +32,8 @@ export interface RecordInventoryEventParams {
     unitCost?: number;
     reason?: string;
     supplierTransactionId?: string | null;
+    /** Batch this event created/consumed, for purchase events sourced from a receipt. */
+    batchId?: string | null;
     /** Defaults to now. */
     occurredAt?: Date;
 }
@@ -58,6 +60,7 @@ export async function recordInventoryEvent(
         unitCost,
         reason,
         supplierTransactionId,
+        batchId,
         occurredAt,
     } = params;
 
@@ -84,6 +87,7 @@ export async function recordInventoryEvent(
             quantityDelta,
             unitCost: unitCost ?? null,
             supplierTransactionId: supplierTransactionId ?? null,
+            batchId: batchId ?? null,
             reason: reason ?? null,
             occurredAt: occurred,
             createdAt: serverTimestamp(),

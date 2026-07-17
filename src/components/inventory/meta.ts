@@ -12,7 +12,9 @@ import {
     type LucideIcon,
 } from "lucide-react";
 import type { StockStatus } from "../../analysis/inventory";
+import type { BatchRiskLevel } from "../../analysis/shelfLife";
 import type { StockUnit } from "../../models/product";
+import type { PerishableCategory } from "../../models/inventoryBatch";
 import type { InventoryEventType } from "../../models/inventoryEventType";
 
 export const STOCK_UNIT_LABELS: Record<StockUnit, string> = {
@@ -21,6 +23,55 @@ export const STOCK_UNIT_LABELS: Record<StockUnit, string> = {
     oz: "oz",
     liter: "L",
     pack: "pack",
+};
+
+export const STOCK_UNITS: StockUnit[] = ["each", "lb", "oz", "liter", "pack"];
+
+export const PERISHABLE_CATEGORY_LABELS: Record<PerishableCategory, string> = {
+    dairy: "Fresh dairy",
+    produce: "Fresh produce",
+    protein: "Protein (raw)",
+    non_perishable: "Non-perishable",
+    other: "Other",
+};
+
+export const PERISHABLE_CATEGORIES: PerishableCategory[] = [
+    "dairy",
+    "produce",
+    "protein",
+    "non_perishable",
+    "other",
+];
+
+export interface RiskMeta {
+    label: string;
+    /** Pill background + text classes. */
+    pill: string;
+    /** Leading dot color. */
+    dot: string;
+}
+
+export const RISK_META: Record<BatchRiskLevel, RiskMeta> = {
+    expired: {
+        label: "Expired",
+        pill: "bg-red-100 text-red-800 ring-1 ring-inset ring-red-300",
+        dot: "bg-red-600",
+    },
+    critical: {
+        label: "Critical",
+        pill: "bg-red-50 text-red-700 ring-1 ring-inset ring-red-200",
+        dot: "bg-red-500",
+    },
+    expiring_soon: {
+        label: "Expiring soon",
+        pill: "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200",
+        dot: "bg-amber-500",
+    },
+    ok: {
+        label: "OK",
+        pill: "bg-green-50 text-green-700 ring-1 ring-inset ring-green-200",
+        dot: "bg-green-500",
+    },
 };
 
 export interface StatusMeta {

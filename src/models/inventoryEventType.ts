@@ -13,6 +13,7 @@ export interface InventoryEvent {
   unitCost?: number;      // per-unit cost for purchases
 
   supplierTransactionId?: string | null;
+  batchId?: string | null;   // set on purchase events that create an inventoryBatch
 
   reason?: string | null;
   occurredAt: Timestamp;
