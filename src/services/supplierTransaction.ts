@@ -7,6 +7,7 @@ import {
     getDocs,
     query,
     serverTimestamp,
+    updateDoc,
 } from "firebase/firestore";
 import { db } from "../firebaseClient";
 import type { SupplierTransaction, SupplierTransactionType } from "../models/supplierTransaction";
@@ -77,6 +78,23 @@ export async function createSupplierTransaction(params: {
         await setDoc(ref, { id: ref.id }, { merge: true });
         return ref.id;
     }
+}
+
+/**
+ * Attach a stored receipt image URL to an already-created transaction. Kept
+ * separate so the image can be uploaded to Storage under the transaction's id
+ * (path `accounts/{accountId}/receipts/{id}`) after the doc exists.
+ */
+export async function setSupplierReceiptImageUrl(
+    accountId: string,
+    id: string,
+    receiptImageUrl: string
+): Promise<void> {
+    const ref = doc(suppliersCol(accountId), id);
+    await updateDoc(ref, {
+        receiptImageUrl,
+        updatedAt: serverTimestamp(),
+    });
 }
 
 export async function listSupplierTransactions(

@@ -22,6 +22,7 @@ package servedup
 // accounts/{accountId}/orders        -> #Order
 // accounts/{accountId}/orders/{id}/lineItems -> #OrderLineItem
 // accounts/{accountId}/suppliers     -> #SupplierTransaction
+// accounts/{accountId}/inventoryBatches -> #InventoryBatch
 // accounts/{accountId}/inventoryEvents -> #InventoryEvent
 // accounts/{accountId}/messages      -> #Message
 // accounts/{accountId}/campaigns     -> #Campaign
@@ -155,6 +156,32 @@ package servedup
     updatedAt:        #Timestamp
 }
 
+// /accounts/{accountId}/inventoryBatches
+#InventoryBatch: {
+    id:         #ID
+    accountId:  #ID
+    productId:  #ID
+
+    supplierTransactionId?: #ID   // receipt/invoice the batch was logged from
+
+    quantityReceived:  #Quantity  // original amount, in the product's stockUnit
+    quantityRemaining: #Quantity  // still on hand; FIFO decrements this
+    unit:              string     // mirrors Product.stockUnit at receive time
+
+    unitCost?:         #Money
+
+    perishableCategory: *"dairy" | "produce" | "protein" | "non_perishable" | "other"
+
+    receivedAt:    #Timestamp     // the receipt "Log Date"
+    shelfLifeDays: #Quantity      // resolved default or owner override
+    expiresAt:     #Timestamp     // receivedAt + shelfLifeDays
+
+    status: *"active" | "depleted" | "expired"
+
+    createdAt: #Timestamp
+    updatedAt: #Timestamp
+}
+
 // /accounts/{accountId}/inventoryEvents
 #InventoryEvent: {
     id:         #ID
@@ -166,6 +193,7 @@ package servedup
     unitCost?:      #Money
 
     supplierTransactionId?: #ID
+    batchId?:               #ID   // set on purchase events that create a batch
 
     reason?:      string
     occurredAt:   #Timestamp
