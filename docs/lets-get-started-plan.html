@@ -1,0 +1,1758 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Menumo · Let's get started - page design</title>
+
+<!-- Poppins is the product's display face (LandingPage.tsx). Loaded for mockup fidelity;
+     the stack falls back cleanly to system-ui when offline. -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&display=swap" rel="stylesheet" />
+
+<style>
+/* ---------------------------------------------------------------------------
+   Tokens - adopted verbatim from docs/subscription-system-plan.html so the two
+   documents read as one set, plus a few additions this page needs.
+   --------------------------------------------------------------------------- */
+:root {
+    --bg: #FAF7F1;
+    --paper: #FFFFFF;
+    --paper-2: #F4F0E7;
+    --ink: #19211F;
+    --ink-2: #4C5A55;
+    --ink-3: #7C8781;
+    --line: #E4DED3;
+    --line-2: #D2C9B9;
+    --accent: #3F6F63;
+    --accent-soft: #E4EFEB;
+    --on-accent: #FFFFFF;
+    --t-ess: #77857F;
+    --t-ess-soft: #EDEFEC;
+    --t-pro: #3F6F63;
+    --t-pro-soft: #E4EFEB;
+    --t-biz: #A95A2A;
+    --t-biz-soft: #F6E9DE;
+    --warn: #A9772A;
+    --warn-soft: #F7EEDC;
+    --shadow: 0 1px 2px rgba(25, 33, 31, .05), 0 8px 24px -12px rgba(25, 33, 31, .18);
+
+    /* additions */
+    --coral: #D94C3D;          /* real product CTA (LandingPage.tsx) */
+    --coral-2: #E67E50;
+    --ok: #3F6F63;
+    --ok-soft: #E4EFEB;
+    --app-cream: #FBF8F3;      /* real product canvas */
+    --app-ink: #111827;
+    --app-line: #E5E7EB;
+    --app-muted: #6B7280;
+    --app-paper: #FFFFFF;
+
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --display: "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+    --dock: 384px;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #121817; --paper: #1A2220; --paper-2: #212B28;
+        --ink: #E9E5DC; --ink-2: #AEB9B4; --ink-3: #82908A;
+        --line: #2B3633; --line-2: #3A4844;
+        --accent: #74B3A1; --accent-soft: #1E2E2A; --on-accent: #10201C;
+        --t-ess: #93A09A; --t-ess-soft: #242C2A;
+        --t-pro: #74B3A1; --t-pro-soft: #1E2E2A;
+        --t-biz: #D68C52; --t-biz-soft: #2E241B;
+        --warn: #D6AC5E; --warn-soft: #2E241B;
+        --ok: #74B3A1; --ok-soft: #1E2E2A;
+        --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
+        --app-cream: #171E1C; --app-ink: #E9E5DC; --app-line: #2B3633;
+        --app-muted: #92A09A; --app-paper: #1E2725;
+    }
+}
+:root[data-theme="dark"] {
+    --bg: #121817; --paper: #1A2220; --paper-2: #212B28;
+    --ink: #E9E5DC; --ink-2: #AEB9B4; --ink-3: #82908A;
+    --line: #2B3633; --line-2: #3A4844;
+    --accent: #74B3A1; --accent-soft: #1E2E2A; --on-accent: #10201C;
+    --t-ess: #93A09A; --t-ess-soft: #242C2A;
+    --t-pro: #74B3A1; --t-pro-soft: #1E2E2A;
+    --t-biz: #D68C52; --t-biz-soft: #2E241B;
+    --warn: #D6AC5E; --warn-soft: #2E241B;
+    --ok: #74B3A1; --ok-soft: #1E2E2A;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
+    --app-cream: #171E1C; --app-ink: #E9E5DC; --app-line: #2B3633;
+    --app-muted: #92A09A; --app-paper: #1E2725;
+}
+:root[data-theme="light"] {
+    --bg: #FAF7F1; --paper: #FFFFFF; --paper-2: #F4F0E7;
+    --ink: #19211F; --ink-2: #4C5A55; --ink-3: #7C8781;
+    --line: #E4DED3; --line-2: #D2C9B9;
+    --accent: #3F6F63; --accent-soft: #E4EFEB; --on-accent: #FFFFFF;
+    --t-ess: #77857F; --t-ess-soft: #EDEFEC;
+    --t-pro: #3F6F63; --t-pro-soft: #E4EFEB;
+    --t-biz: #A95A2A; --t-biz-soft: #F6E9DE;
+    --warn: #A9772A; --warn-soft: #F7EEDC;
+    --ok: #3F6F63; --ok-soft: #E4EFEB;
+    --shadow: 0 1px 2px rgba(25,33,31,.05), 0 8px 24px -12px rgba(25,33,31,.18);
+    --app-cream: #FBF8F3; --app-ink: #111827; --app-line: #E5E7EB;
+    --app-muted: #6B7280; --app-paper: #FFFFFF;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    * { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+/* ------------------------------ document shell --------------------------- */
+.doc-wrap { margin-right: var(--dock); }
+.doc-page { max-width: 1080px; margin: 0 auto; padding: 40px 28px 140px; }
+
+.doc-topbar {
+    position: sticky; top: 0; z-index: 40;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    padding: 12px 28px;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+}
+.doc-topbar nav { display: flex; gap: 4px; flex-wrap: wrap; }
+.doc-topbar a {
+    color: var(--ink-2); text-decoration: none; font-size: 13px;
+    padding: 5px 10px; border-radius: 999px;
+}
+.doc-topbar a:hover { background: var(--paper-2); color: var(--ink); }
+.doc-brandmark {
+    font-family: var(--display); font-weight: 600; font-size: 14px;
+    letter-spacing: -.01em; margin-right: auto;
+}
+.doc-brandmark span { color: var(--ink-3); font-weight: 500; }
+
+.theme-btn {
+    border: 1px solid var(--line-2); background: var(--paper); color: var(--ink-2);
+    border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 12px;
+    cursor: pointer;
+}
+.theme-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.eyebrow {
+    font-size: 11px; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--ink-3); font-weight: 600;
+}
+
+h1 {
+    font-family: var(--display); font-weight: 600;
+    font-size: clamp(30px, 4.2vw, 46px); line-height: 1.1;
+    letter-spacing: -.025em; margin: 10px 0 0; text-wrap: balance;
+}
+h2 {
+    font-family: var(--display); font-weight: 600;
+    font-size: 25px; line-height: 1.22; letter-spacing: -.018em;
+    margin: 0; text-wrap: balance;
+}
+h3 { font-size: 16px; font-weight: 650; margin: 0; letter-spacing: -.005em; }
+p { margin: 0; }
+.lede { color: var(--ink-2); font-size: 18px; max-width: 66ch; margin-top: 14px; }
+.prose { color: var(--ink-2); max-width: 68ch; }
+.prose + .prose { margin-top: 12px; }
+
+.doc-header { padding-bottom: 34px; border-bottom: 1px solid var(--line); }
+
+.metabar {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px; background: var(--line); border: 1px solid var(--line);
+    border-radius: 12px; overflow: hidden; margin-top: 30px;
+}
+.metabar div { background: var(--paper); padding: 12px 15px; }
+.metabar dt { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+.metabar dd { margin: 3px 0 0; font-size: 14px; font-weight: 600; }
+
+section.block { padding-top: 62px; scroll-margin-top: 76px; }
+.block-head { display: flex; flex-direction: column; gap: 8px; margin-bottom: 26px; }
+
+.card {
+    background: var(--paper); border: 1px solid var(--line);
+    border-radius: 14px; padding: 20px 22px; box-shadow: var(--shadow);
+}
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+.stack { display: flex; flex-direction: column; gap: 16px; }
+
+code, .kbd {
+    font-family: var(--mono); font-size: .88em;
+    background: var(--paper-2); border: 1px solid var(--line);
+    padding: 1px 5px; border-radius: 5px; color: var(--ink);
+}
+
+.pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    padding: 3px 9px; border-radius: 999px;
+    background: var(--paper-2); color: var(--ink-2); border: 1px solid var(--line);
+}
+.pill.ok { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+.pill.warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.pill.flat { background: transparent; color: var(--ink-3); }
+
+/* tables */
+.tbl-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 560px; }
+th, td { text-align: left; padding: 11px 15px; border-bottom: 1px solid var(--line); vertical-align: top; }
+thead th {
+    font-size: 11px; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--ink-3); font-weight: 700; background: var(--paper-2);
+    position: sticky; top: 0;
+}
+tbody tr:last-child td { border-bottom: none; }
+td.num, th.num { text-align: center; font-variant-numeric: tabular-nums; }
+.cell-sub { display: block; font-size: 12px; color: var(--ink-3); font-family: var(--mono); margin-top: 2px; }
+.dash { color: var(--ink-3); }
+.tick { color: var(--ok); font-weight: 700; }
+
+/* entry-point list - genuinely ordered by when the user meets it */
+.entry { display: grid; grid-template-columns: 34px 1fr; gap: 14px; align-items: start; }
+.entry + .entry { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--line); }
+.entry-n {
+    width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center;
+    background: var(--accent-soft); color: var(--accent);
+    font-family: var(--mono); font-size: 13px; font-weight: 700;
+}
+.entry h3 { margin-bottom: 3px; }
+.entry p { color: var(--ink-2); font-size: 14px; }
+
+.callout {
+    border-left: 3px solid var(--accent); background: var(--accent-soft);
+    padding: 14px 18px; border-radius: 0 12px 12px 0; color: var(--ink-2); font-size: 14.5px;
+}
+.callout.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+.callout strong { color: var(--ink); }
+
+/* ------------------------------ mockup frame ----------------------------- */
+.frame {
+    border: 1px solid var(--line-2); border-radius: 16px; overflow: hidden;
+    background: var(--app-cream); box-shadow: var(--shadow);
+}
+.frame-bar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 14px; background: var(--paper-2); border-bottom: 1px solid var(--line);
+}
+.frame-dots { display: flex; gap: 6px; }
+.frame-dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--line-2); display: block; }
+.frame-url {
+    flex: 1; font-family: var(--mono); font-size: 12px; color: var(--ink-2);
+    background: var(--paper); border: 1px solid var(--line);
+    border-radius: 999px; padding: 3px 12px; text-align: center;
+}
+.frame-body { display: grid; grid-template-columns: 190px 1fr; min-height: 400px; }
+
+/* app sidebar replica */
+.mk-side {
+    background: var(--app-paper); border-right: 1px solid var(--app-line);
+    padding: 14px 10px; display: flex; flex-direction: column; gap: 2px;
+}
+.mk-logo {
+    display: flex; align-items: center; gap: 8px; padding: 4px 8px 14px;
+    font-family: var(--display); font-weight: 600; font-size: 15px; color: var(--app-ink);
+}
+.mk-logo i {
+    width: 26px; height: 26px; border-radius: 8px; display: block;
+    background: linear-gradient(135deg, #5B9A8B, #4A7C70);
+}
+.mk-nav {
+    display: flex; align-items: center; gap: 9px;
+    padding: 6px 9px; border-radius: 8px;
+    font-size: 12.5px; color: var(--app-muted);
+}
+.mk-nav b { font-weight: 500; }
+.mk-nav .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: .45; flex: none; }
+.mk-nav.is-active {
+    background: linear-gradient(135deg, #5B9A8B, #4A7C70); color: #fff;
+}
+.mk-nav.is-active .dot { opacity: 1; }
+.mk-nav.is-cta {
+    margin-top: auto; border: 1px dashed var(--t-pro); color: var(--t-pro);
+    justify-content: space-between; font-weight: 600;
+}
+.mk-ring-mini {
+    font-family: var(--mono); font-size: 10px; font-weight: 700;
+    background: var(--t-pro-soft); padding: 1px 6px; border-radius: 999px;
+}
+
+/* landing-page replica (public screens) */
+.lp { background: var(--app-cream); }
+.lp-nav {
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+    padding: 11px 20px; background: var(--app-paper); border-bottom: 1px solid var(--app-line);
+}
+.lp-links { display: flex; gap: 16px; margin-left: 8px; }
+.lp-links span { font-size: 12px; color: var(--app-muted); }
+.lp-navcta { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.lp-login { font-size: 12px; color: var(--app-muted); }
+.lp-primary, .lp-ghost, .lp-coral {
+    position: relative; display: inline-flex; flex-direction: column; align-items: center;
+    font-size: 12.5px; font-weight: 600; border-radius: 999px; padding: 7px 15px; white-space: nowrap;
+}
+.lp-primary { background: linear-gradient(135deg, #5B9A8B, #4A7C70); color: #fff; }
+.lp-coral { background: linear-gradient(135deg, var(--coral), var(--coral-2)); color: #fff; }
+.lp-ghost { border: 1px solid var(--app-line); color: var(--app-muted); }
+.lp-primary em, .lp-ghost em, .lp-coral em {
+    position: absolute; top: calc(100% + 5px); left: 50%; transform: translateX(-50%);
+    font-style: normal; font-family: var(--mono); font-size: 10px; font-weight: 600;
+    color: var(--accent); background: var(--accent-soft);
+    padding: 1px 6px; border-radius: 4px; white-space: nowrap;
+}
+.lp-hero { display: flex; gap: 26px; padding: 34px 22px 30px; flex-wrap: wrap; align-items: center; }
+.lp-hero > div:first-child { flex: 1 1 260px; }
+.lp-eyebrow {
+    display: inline-block; font-size: 11px; font-weight: 600; color: var(--t-pro);
+    background: var(--t-pro-soft); padding: 4px 11px; border-radius: 999px;
+}
+.lp-hero h4 {
+    font-family: var(--display); font-size: 26px; font-weight: 600; letter-spacing: -.025em;
+    line-height: 1.14; color: var(--app-ink); margin: 12px 0 0; text-wrap: balance;
+}
+.lp-hero p { font-size: 13px; color: var(--app-muted); margin-top: 10px; max-width: 42ch; }
+.lp-btns { display: flex; gap: 12px; margin-top: 22px; flex-wrap: wrap; }
+.lp-card {
+    flex: 0 1 260px; background: var(--app-paper); border: 1px solid var(--app-line);
+    border-radius: 16px; padding: 15px;
+}
+.lp-card-h { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.lp-card-h small, .lp-row small { display: block; font-size: 11px; color: var(--app-muted); }
+.lp-card-h b { font-family: var(--display); font-size: 19px; color: var(--app-ink); letter-spacing: -.02em; }
+.lp-badge { font-size: 11.5px; font-weight: 600; color: var(--t-pro); background: var(--t-pro-soft); padding: 4px 9px; border-radius: 8px; }
+.lp-row { background: var(--app-cream); border-radius: 11px; padding: 10px 12px; margin-top: 9px; }
+.lp-row b { display: block; font-size: 12.5px; color: var(--app-ink); font-weight: 600; margin-top: 2px; }
+.lp-brief { padding: 26px 22px 4px; }
+.lp-brief h4 {
+    font-family: var(--display); font-size: 25px; font-weight: 600; letter-spacing: -.025em;
+    color: var(--app-ink); margin: 0;
+}
+.lp-brief p { font-size: 13.5px; color: var(--app-muted); margin-top: 10px; max-width: 62ch; }
+
+/* app canvas */
+.mk-main { padding: 0 0 26px; overflow: hidden; }
+.mk-strip {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 9px 22px; font-size: 12.5px;
+    background: var(--warn-soft); color: var(--warn);
+    border-bottom: 1px solid color-mix(in srgb, var(--warn) 22%, transparent);
+}
+.mk-strip b { color: var(--warn); }
+.mk-strip a { margin-left: auto; color: inherit; font-weight: 600; }
+.mk-pad { padding: 0 22px; }
+
+.mk-hero { padding: 26px 22px 22px; display: flex; gap: 22px; align-items: flex-start; flex-wrap: wrap; }
+.mk-hero h2 {
+    font-family: var(--display); font-size: 28px; letter-spacing: -.025em;
+    color: var(--app-ink); line-height: 1.15;
+}
+.mk-hero p { color: var(--app-muted); font-size: 14px; max-width: 46ch; margin-top: 8px; }
+.mk-hero-side { margin-left: auto; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+
+.mk-trial {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--t-pro-soft); color: var(--t-pro);
+    border-radius: 999px; padding: 6px 14px; font-size: 12.5px; font-weight: 600;
+}
+.mk-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    border-radius: 999px; padding: 8px 17px; font-size: 13px; font-weight: 600;
+    background: linear-gradient(135deg, var(--coral), var(--coral-2));
+    color: #fff; border: none; cursor: pointer; text-decoration: none;
+}
+.mk-btn.ghost {
+    background: none; border: 1px solid var(--app-line); color: var(--app-muted);
+}
+
+.mk-sec-title {
+    display: flex; align-items: baseline; gap: 10px; margin: 26px 0 12px;
+    font-family: var(--display); font-size: 17px; font-weight: 600; color: var(--app-ink);
+}
+.mk-sec-title small { font-family: var(--sans); font-size: 12.5px; font-weight: 400; color: var(--app-muted); }
+
+/* checklist */
+.mk-check { background: var(--app-paper); border: 1px solid var(--app-line); border-radius: 16px; overflow: hidden; }
+.mk-check-head {
+    display: flex; align-items: center; gap: 16px;
+    padding: 16px 18px; border-bottom: 1px solid var(--app-line);
+}
+.mk-check-head h4 { margin: 0; font-size: 14.5px; color: var(--app-ink); font-weight: 650; }
+.mk-check-head p { margin: 2px 0 0; font-size: 12.5px; color: var(--app-muted); }
+.mk-bar { height: 6px; border-radius: 999px; background: var(--app-line); overflow: hidden; margin-top: 9px; max-width: 260px; }
+.mk-bar i { display: block; height: 100%; width: 40%; background: linear-gradient(90deg, #5B9A8B, #4A7C70); }
+
+.mk-step { display: flex; align-items: center; gap: 13px; padding: 12px 18px; }
+.mk-step + .mk-step { border-top: 1px solid var(--app-line); }
+.mk-step-mark {
+    width: 22px; height: 22px; border-radius: 50%; flex: none; display: grid; place-items: center;
+    font-size: 11px; font-family: var(--mono); font-weight: 700;
+    border: 1.5px solid var(--app-line); color: var(--app-muted); background: var(--app-paper);
+}
+.mk-step.done .mk-step-mark { background: var(--ok); border-color: var(--ok); color: #fff; }
+.mk-step.next .mk-step-mark { border-color: var(--coral); color: var(--coral); border-style: solid; }
+.mk-step-txt { flex: 1; min-width: 0; }
+.mk-step-txt b { display: block; font-size: 13.5px; font-weight: 600; color: var(--app-ink); }
+.mk-step.done .mk-step-txt b { color: var(--app-muted); text-decoration: line-through; text-decoration-color: var(--app-line); }
+.mk-step-txt span { font-size: 12px; color: var(--app-muted); }
+.mk-step-go {
+    font-size: 12px; font-weight: 600; color: var(--t-pro);
+    border: 1px solid var(--app-line); border-radius: 999px; padding: 4px 11px; white-space: nowrap;
+}
+.mk-step.next .mk-step-go { background: var(--coral); border-color: var(--coral); color: #fff; }
+
+/* feature tiles */
+.mk-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: 10px; }
+.mk-tile {
+    background: var(--app-paper); border: 1px solid var(--app-line);
+    border-radius: 13px; padding: 13px 14px;
+}
+.mk-tile-ico {
+    width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center;
+    background: var(--accent-soft); color: var(--accent); margin-bottom: 9px;
+}
+.mk-tile-ico svg { width: 15px; height: 15px; }
+.mk-tile b { display: block; font-size: 13px; color: var(--app-ink); font-weight: 600; }
+.mk-tile span { display: block; font-size: 11.5px; color: var(--app-muted); margin-top: 3px; line-height: 1.45; }
+.mk-tile em {
+    display: inline-block; margin-top: 8px; font-style: normal;
+    font-family: var(--mono); font-size: 10.5px; color: var(--ink-3);
+}
+.mk-tile.locked { border-style: dashed; opacity: .82; }
+.mk-tile.locked .mk-tile-ico { background: var(--paper-2); color: var(--ink-3); }
+
+/* status board */
+.mk-status { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.mk-status-col { background: var(--app-paper); border: 1px solid var(--app-line); border-radius: 13px; padding: 13px 14px; }
+.mk-status-col > b { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.mk-status-col ul { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.mk-status-col li { font-size: 12.5px; color: var(--app-muted); display: flex; gap: 7px; }
+.mk-status-col li::before { content: ""; width: 4px; height: 4px; border-radius: 50%; background: currentColor; flex: none; margin-top: 7px; opacity: .5; }
+.sw { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+
+/* tier cards */
+.mk-tiers { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.mk-tier { background: var(--app-paper); border: 1px solid var(--app-line); border-radius: 15px; padding: 16px; position: relative; }
+.mk-tier.is-current { border-color: var(--t-pro); box-shadow: 0 0 0 2px var(--t-pro-soft); }
+.mk-tier-badge {
+    position: absolute; top: -9px; left: 16px;
+    background: var(--t-pro); color: #fff; font-size: 10px; font-weight: 700;
+    letter-spacing: .07em; text-transform: uppercase; padding: 2px 9px; border-radius: 999px;
+}
+.mk-tier h4 { margin: 0; font-family: var(--display); font-size: 15px; font-weight: 600; color: var(--app-ink); }
+.mk-tier .price { font-family: var(--display); font-size: 27px; font-weight: 600; color: var(--app-ink); letter-spacing: -.03em; margin-top: 6px; }
+.mk-tier .price small { font-family: var(--sans); font-size: 12px; font-weight: 400; color: var(--app-muted); letter-spacing: 0; }
+.mk-tier .who { font-size: 12px; color: var(--app-muted); margin-top: 4px; min-height: 32px; }
+.mk-tier ul { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.mk-tier li { font-size: 12.5px; color: var(--app-ink); display: flex; gap: 7px; align-items: flex-start; }
+.mk-tier li svg { width: 13px; height: 13px; flex: none; margin-top: 3px; color: var(--ok); }
+.mk-tier li.off { color: var(--app-muted); }
+.mk-tier li.off svg { color: var(--app-line); }
+.mk-tier .mk-btn { width: 100%; justify-content: center; margin-top: 14px; }
+
+/* annotation rail */
+.anno { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 18px; }
+@media (min-width: 900px) { .anno { grid-template-columns: repeat(2, 1fr); } }
+.anno-item { display: grid; grid-template-columns: 26px 1fr; gap: 11px; align-items: start; }
+.anno-key {
+    width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center;
+    background: var(--ink); color: var(--bg); font-family: var(--mono); font-size: 11px; font-weight: 700;
+}
+.anno-item p { font-size: 13.5px; color: var(--ink-2); }
+.anno-item b { color: var(--ink); font-size: 13.5px; }
+
+.marker {
+    display: inline-grid; place-items: center; width: 19px; height: 19px; border-radius: 6px;
+    background: var(--ink); color: var(--bg); font-family: var(--mono); font-size: 10px;
+    font-weight: 700; vertical-align: middle; margin-right: 6px;
+}
+
+/* flow map */
+.flow-scroll { overflow-x: auto; padding: 4px 2px 8px; }
+.flow { display: flex; align-items: stretch; min-width: 880px; }
+.fstage {
+    flex: 1 1 0; min-width: 158px;
+    background: var(--paper); border: 1px solid var(--line); border-radius: 13px;
+    padding: 13px 14px; display: flex; flex-direction: column; gap: 6px;
+}
+.fstage.public { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.fstage.gated { border-style: dashed; }
+.fstage-top { display: flex; align-items: center; gap: 7px; }
+.fstage-n {
+    width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center; flex: none;
+    background: var(--ink); color: var(--bg); font-family: var(--mono); font-size: 10px; font-weight: 700;
+}
+.fstage code { font-size: 11.5px; padding: 1px 5px; }
+.fstage b { font-size: 13px; font-weight: 650; line-height: 1.35; }
+.fstage p { font-size: 12px; color: var(--ink-2); line-height: 1.5; }
+.fstage .act {
+    margin-top: auto; padding-top: 8px; font-size: 11.5px; color: var(--accent); font-weight: 600;
+    display: flex; align-items: center; gap: 5px;
+}
+.farrow { flex: 0 0 30px; display: grid; place-items: center; color: var(--line-2); }
+.farrow svg { width: 16px; height: 16px; }
+.flow-key { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; font-size: 12px; color: var(--ink-3); }
+.flow-key span { display: inline-flex; align-items: center; gap: 6px; }
+.flow-key i { width: 20px; height: 0; border-top: 2px solid var(--line-2); display: block; }
+.flow-key i.solid { border-color: var(--accent); }
+.flow-key i.dash { border-top-style: dashed; }
+
+ul.plain { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+ul.plain li { display: flex; gap: 9px; font-size: 14px; color: var(--ink-2); }
+ul.plain li svg { width: 15px; height: 15px; flex: none; margin-top: 4px; color: var(--accent); }
+
+/* ------------------------------ chat dock -------------------------------- */
+.chat {
+    position: fixed; top: 0; right: 0; bottom: 0; width: var(--dock); z-index: 60;
+    display: flex; flex-direction: column;
+    background: var(--paper); border-left: 1px solid var(--line);
+}
+.chat-head { padding: 14px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+.chat-head h2 { font-size: 14px; font-family: var(--sans); font-weight: 650; letter-spacing: 0; }
+.chat-head p { font-size: 11.5px; color: var(--ink-3); margin-top: 1px; }
+.chat-status {
+    margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; color: var(--ink-3);
+}
+.chat-status i { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); display: block; }
+.chat-status.on i { background: var(--ok); }
+.chat-status.off i { background: var(--coral); }
+
+.chat-log { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.msg { max-width: 92%; font-size: 13.5px; line-height: 1.55; border-radius: 13px; padding: 9px 13px; white-space: pre-wrap; word-wrap: break-word; }
+.msg.assistant { background: var(--paper-2); border: 1px solid var(--line); align-self: flex-start; border-bottom-left-radius: 4px; }
+.msg.user { background: var(--accent); color: var(--on-accent); align-self: flex-end; border-bottom-right-radius: 4px; }
+.msg-who { display: block; font-size: 10px; letter-spacing: .09em; text-transform: uppercase; font-weight: 700; opacity: .65; margin-bottom: 3px; }
+
+.chat-hint { font-size: 11.5px; color: var(--ink-3); padding: 0 16px 10px; }
+.chat-quick { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 12px; }
+.chat-quick button {
+    font: inherit; font-size: 11.5px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--paper-2); color: var(--ink-2);
+    border-radius: 999px; padding: 4px 10px;
+}
+.chat-quick button:hover { border-color: var(--accent); color: var(--accent); }
+
+.chat-form { border-top: 1px solid var(--line); padding: 12px; display: flex; flex-direction: column; gap: 9px; }
+.chat-form textarea {
+    width: 100%; resize: none; font: inherit; font-size: 13.5px; line-height: 1.5;
+    border: 1px solid var(--line-2); border-radius: 11px; padding: 10px 12px;
+    background: var(--bg); color: var(--ink); min-height: 74px;
+}
+.chat-form textarea::placeholder { color: var(--ink-3); }
+.chat-send {
+    align-self: stretch; font: inherit; font-size: 13px; font-weight: 650; cursor: pointer;
+    background: var(--accent); color: var(--on-accent); border: none;
+    border-radius: 10px; padding: 9px 14px;
+}
+.chat-send:disabled { opacity: .5; cursor: not-allowed; }
+.chat-toggle { display: none; }
+
+@media (max-width: 1180px) {
+    :root { --dock: 0px; }
+    .doc-wrap { margin-right: 0; }
+    .chat {
+        width: min(400px, 92vw); transform: translateX(101%);
+        transition: transform .22s ease; box-shadow: -18px 0 48px -28px rgba(0,0,0,.5);
+    }
+    .chat.open { transform: translateX(0); }
+    .chat-toggle {
+        display: inline-flex; align-items: center; gap: 8px;
+        position: fixed; right: 16px; bottom: 16px; z-index: 70;
+        border: none; border-radius: 999px; padding: 11px 18px; cursor: pointer;
+        background: var(--accent); color: var(--on-accent); font: inherit; font-size: 13px; font-weight: 650;
+        box-shadow: var(--shadow);
+    }
+}
+@media (max-width: 720px) {
+    .frame-body { grid-template-columns: 1fr; }
+    .mk-side { flex-direction: row; overflow-x: auto; border-right: none; border-bottom: 1px solid var(--app-line); }
+    .mk-nav.is-cta { margin-top: 0; }
+    .doc-page { padding: 28px 18px 120px; }
+}
+</style>
+</head>
+<body>
+
+<div class="doc-wrap">
+
+<div class="doc-topbar">
+    <div class="doc-brandmark">Menumo <span>· onboarding design</span></div>
+    <nav>
+        <a href="#job">The job</a>
+        <a href="#flow">The flow</a>
+        <a href="#page">The page</a>
+        <a href="#beta">Beta framing</a>
+        <a href="#states">States</a>
+        <a href="#build">Build notes</a>
+    </nav>
+    <button class="theme-btn" id="themeBtn" type="button">Theme</button>
+</div>
+
+<main class="doc-page">
+
+    <header class="doc-header">
+        <div class="eyebrow">Design draft · for review</div>
+        <h1>Let's get started</h1>
+        <p class="lede">
+            A public page, reached by a <strong>Let's get started</strong> button on the home page, that
+            briefs a prospect on what Menumo does, what beta means, and what it costs - then keeps
+            working after signup as the setup checklist. One route, two states, either side of the
+            signup line.
+        </p>
+        <dl class="metabar">
+            <div><dt>Route</dt><dd><code>/get-started</code></dd></div>
+            <div><dt>Access</dt><dd>Public, no guard</dd></div>
+            <div><dt>States</dt><dd>Visitor · signed in</dd></div>
+            <div><dt>Entry points</dt><dd>5 from the home page</dd></div>
+            <div><dt>Tiers shown</dt><dd>$29 / $79 / $149</dd></div>
+            <div><dt>Status</dt><dd>Built &amp; wired</dd></div>
+        </dl>
+
+        <div class="callout" style="margin-top:22px;">
+            <strong>This is now implemented.</strong> <code>/get-started</code> is live in the app with
+            both states. The feature grid and status board are generated from
+            <code>src/config/features.ts</code> (27 features: 16 live, 3 building, 8 planned), the plans
+            from <code>src/config/plans.ts</code>, and the checklist from
+            <code>useOnboardingProgress</code>. Screens below stay as the design record; the running page
+            is the source of truth.
+        </div>
+    </header>
+
+    <!-- ============================ THE JOB ============================ -->
+    <section class="block" id="job">
+        <div class="block-head">
+            <div class="eyebrow">The job</div>
+            <h2>Three jobs, one page, in a deliberate order</h2>
+        </div>
+
+        <p class="prose">
+            A welcome page usually fails by trying to be a brochure. This one has measurable work to do,
+            and the order the work appears in is the main design decision on the page. Putting it
+            <em>before</em> signup changes who each job is aimed at, but not what the jobs are.
+        </p>
+
+        <div class="grid-3" style="margin-top: 22px;">
+            <div class="card">
+                <div class="pill ok">Activation</div>
+                <h3 style="margin-top:10px;">Get to first value fast</h3>
+                <p class="prose" style="font-size:14px;margin-top:6px;">
+                    Menumo is worthless until there is a menu and a day of sales in it. Every analytics
+                    surface reads from <code>useAnalyticsSnapshot</code>, which is empty on day one. The
+                    checklist exists to fill it.
+                </p>
+            </div>
+            <div class="card">
+                <div class="pill warn">Expectation</div>
+                <h3 style="margin-top:10px;">Say what beta means</h3>
+                <p class="prose" style="font-size:14px;margin-top:6px;">
+                    Several pages exist but are not routed yet. If a user hears about a feature and cannot
+                    find it, that is a support ticket and a trust dent. Naming what is not built yet costs
+                    nothing and buys patience.
+                </p>
+            </div>
+            <div class="card">
+                <div class="pill">Commercial</div>
+                <h3 style="margin-top:10px;">Make the plan legible</h3>
+                <p class="prose" style="font-size:14px;margin-top:6px;">
+                    There is no free tier. Trial users need to know what happens on day 15 before day 14,
+                    or the trial ends as a surprise wall instead of a decision.
+                </p>
+            </div>
+        </div>
+
+        <div class="callout" style="margin-top:22px;">
+            <strong>The ordering call:</strong> capability first, price last. The page opens with what
+            Menumo does and closes with what it costs. Leading with a pricing table suppresses both
+            signup and activation. Price is never hidden though - it is one anchor click away in the
+            sub-nav, and the beta strip sits above everything.
+        </div>
+
+        <div class="callout" style="margin-top:14px;">
+            <strong>Why pre-signup is the stronger position:</strong> the beta status board is the whole
+            argument. Told <em>after</em> signup, "scheduling isn't built yet" reads as a bait and switch.
+            Told <em>before</em>, it reads as candour, and it filters out the operator who was only ever
+            going to churn over the missing feature. The people who sign up anyway have already accepted
+            the gaps, which is a far better trial cohort. Pricing works the same way: nobody reaches day
+            15 surprised.
+        </div>
+    </section>
+
+    <!-- ============================ FLOW ============================ -->
+    <section class="block" id="flow">
+        <div class="block-head">
+            <div class="eyebrow">The flow</div>
+            <h2>From the home page to a set-up truck</h2>
+        </div>
+
+        <p class="prose">
+            <code>/get-started</code> is public and unguarded. It sits between the home page and the signup
+            form, and the same route keeps working after signup with the checklist switched live. The spine
+            below is the path we design for. The two shortcuts under it are the paths people take when they
+            are already sold, or already customers.
+        </p>
+
+        <div class="flow-scroll" style="margin-top:22px;">
+            <div class="flow">
+
+                <div class="fstage">
+                    <div class="fstage-top"><span class="fstage-n">1</span><code>/</code></div>
+                    <b>Home page</b>
+                    <p>Hero, feature blocks, social proof. Unchanged except for where the buttons point.</p>
+                    <span class="act">Taps "Let's get started" &rarr;</span>
+                </div>
+
+                <div class="farrow"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10.6 4.3l5 5a1 1 0 010 1.4l-5 5-1.4-1.4 3.3-3.3H3.5v-2h8.9L9.2 5.7l1.4-1.4z"/></svg></div>
+
+                <div class="fstage public">
+                    <div class="fstage-top"><span class="fstage-n">2</span><code>/get-started</code></div>
+                    <b>The brief <span class="pill ok" style="margin-left:2px;">public</span></b>
+                    <p>What Menumo does, where the beta honestly stands, the three plans, and a preview of the five setup steps.</p>
+                    <span class="act">Taps "Start free trial" &rarr;</span>
+                </div>
+
+                <div class="farrow"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10.6 4.3l5 5a1 1 0 010 1.4l-5 5-1.4-1.4 3.3-3.3H3.5v-2h8.9L9.2 5.7l1.4-1.4z"/></svg></div>
+
+                <div class="fstage">
+                    <div class="fstage-top"><span class="fstage-n">3</span><code>/auth</code></div>
+                    <b>Create account</b>
+                    <p>Email, password, business name. No card. Arrives carrying <code>?plan=pro&amp;from=get-started</code>.</p>
+                    <span class="act">Account created &rarr;</span>
+                </div>
+
+                <div class="farrow"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10.6 4.3l5 5a1 1 0 010 1.4l-5 5-1.4-1.4 3.3-3.3H3.5v-2h8.9L9.2 5.7l1.4-1.4z"/></svg></div>
+
+                <div class="fstage gated">
+                    <div class="fstage-top"><span class="fstage-n">4</span><code>/get-started</code></div>
+                    <b>Same page, now live</b>
+                    <p>Redirected straight back. Identical layout, but greeted by name and the five steps are now real and tickable at 0/5.</p>
+                    <span class="act">Step 1 opens /menu &rarr;</span>
+                </div>
+
+                <div class="farrow"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10.6 4.3l5 5a1 1 0 010 1.4l-5 5-1.4-1.4 3.3-3.3H3.5v-2h8.9L9.2 5.7l1.4-1.4z"/></svg></div>
+
+                <div class="fstage gated">
+                    <div class="fstage-top"><span class="fstage-n">5</span><code>/dashboard</code></div>
+                    <b>Real numbers</b>
+                    <p>Reached at 5 of 5, or any time they choose. The sidebar keeps a "Get started" counter until the checklist is done.</p>
+                    <span class="act">Activated</span>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="flow-key">
+            <span><i class="solid"></i> Public, no account needed</span>
+            <span><i class="dash"></i> Requires an account</span>
+            <span>Stage 2 and stage 4 are the same route in two states</span>
+        </div>
+
+        <div class="callout" style="margin-top:22px;">
+            <strong>The move that makes this work:</strong> stage 2 and stage 4 are one file. A visitor is
+            shown the five steps as a preview - proof that setup is ten minutes, not a weekend. After
+            signup they land back on the very same list, now tickable. The promise and the delivery are
+            literally the same component, which is the cheapest trust you will ever buy.
+        </div>
+
+        <h3 style="margin-top:30px;">The two shortcuts</h3>
+        <div class="grid-2" style="margin-top:12px;">
+            <div class="card">
+                <h3>Already sold <span class="pill flat">skips stage 2</span></h3>
+                <p class="prose" style="font-size:14px;margin-top:8px;">
+                    The hero keeps its <em>Start free trial</em> button pointing straight at <code>/auth</code>.
+                    Someone who arrived from a recommendation should not be made to read a brief first. They
+                    rejoin at stage 4, where the checklist catches them.
+                </p>
+            </div>
+            <div class="card">
+                <h3>Returning customer <span class="pill flat">skips 2 and 4</span></h3>
+                <p class="prose" style="font-size:14px;margin-top:8px;">
+                    <em>Log in</em> goes to <code>/auth</code> and then to <code>/dashboard</code>. They only
+                    see <code>/get-started</code> again if they open it themselves, or if the sidebar counter
+                    is still showing an unfinished checklist.
+                </p>
+            </div>
+        </div>
+
+        <h3 style="margin-top:30px;">Every button on the home page</h3>
+        <p class="prose" style="margin-top:6px;">
+            The landing page has eight links into <code>/auth</code> today. Five should point at the brief
+            instead. Line numbers are from <code>src/pages/LandingPage.tsx</code>.
+        </p>
+        <div class="tbl-scroll" style="margin-top:12px;">
+            <table>
+                <thead>
+                    <tr><th>Where</th><th>Label</th><th>Today</th><th>Change to</th><th>Why</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><b>Nav, primary</b><span class="cell-sub">:46</span></td>
+                        <td>Get started</td>
+                        <td><code>/auth</code></td>
+                        <td><b>"Let's get started"</b> &rarr; <code>/get-started</code></td>
+                        <td>The button most people click first should explain before it asks for an email</td>
+                    </tr>
+                    <tr>
+                        <td><b>Hero, secondary</b><span class="cell-sub">:78</span></td>
+                        <td>See how it works</td>
+                        <td><code>/auth</code></td>
+                        <td><code>/get-started</code></td>
+                        <td>It promises an explanation and currently delivers a signup form. Straightforward bug</td>
+                    </tr>
+                    <tr>
+                        <td><b>Hero, primary</b><span class="cell-sub">:86</span></td>
+                        <td>Start free trial</td>
+                        <td><code>/auth</code></td>
+                        <td class="dash">unchanged</td>
+                        <td>The direct path for anyone already sold. Deliberately preserved</td>
+                    </tr>
+                    <tr>
+                        <td><b>Mid-page CTA</b><span class="cell-sub">:258</span></td>
+                        <td>-</td>
+                        <td><code>/auth</code></td>
+                        <td><code>/get-started</code></td>
+                        <td>Sits after the feature blocks, where the reader is asking "so what do I get?"</td>
+                    </tr>
+                    <tr>
+                        <td><b>Closing CTA</b><span class="cell-sub">:302</span></td>
+                        <td>-</td>
+                        <td><code>/auth</code></td>
+                        <td><code>/get-started</code></td>
+                        <td>Same reason. Pricing is the unanswered question at the bottom of the page</td>
+                    </tr>
+                    <tr>
+                        <td><b>Footer</b><span class="cell-sub">:337</span></td>
+                        <td>Get started</td>
+                        <td><code>/auth</code></td>
+                        <td><code>/get-started</code></td>
+                        <td>Footer links are reference, not conversion. Send them to the explanation</td>
+                    </tr>
+                    <tr>
+                        <td><b>Nav + footer</b><span class="cell-sub">:39, :352</span></td>
+                        <td>Log in</td>
+                        <td><code>/auth</code></td>
+                        <td class="dash">unchanged</td>
+                        <td>Existing customers must never be routed through a brief</td>
+                    </tr>
+                    <tr>
+                        <td><b>Nav anchors</b><span class="cell-sub">:27, :30, :33</span></td>
+                        <td>Features · How it works · Why Menumo</td>
+                        <td>on-page</td>
+                        <td class="dash">unchanged</td>
+                        <td>They scroll to real sections. Leave them; the brief is the deeper read</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3 style="margin-top:30px;">One route, two states</h3>
+        <div class="grid-2" style="margin-top:12px;">
+            <div class="card">
+                <h3>Visitor <span class="pill ok">public</span></h3>
+                <ul class="plain" style="margin-top:12px;">
+                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 111.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z"/></svg><span>Landing chrome: top nav, no sidebar</span></li>
+                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 111.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z"/></svg><span>Hero: "Here's what you're getting"</span></li>
+                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 111.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z"/></svg><span>Checklist is a static preview with time estimates, no ticks</span></li>
+                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 111.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z"/></svg><span>Every tier button reads "Start free trial" and carries the plan through</span></li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>Signed in <span class="pill">personalized</span></h3>
+                <ul class="plain" style="margin-top:12px;">
+                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 111.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z"/></svg><span>App chrome: <code>DashboardLayout</code> sidebar</span></li>
+                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 111.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z"/></svg><span>Hero greets by name and shows the live trial counter</span></li>
+                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 111.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z"/></svg><span>Checklist derived from real collections and tickable</span></li>
+                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 111.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z"/></svg><span>Current plan outlined; buttons become "Keep Pro" and "Switch"</span></li>
+                </ul>
+            </div>
+        </div>
+
+        <p class="prose" style="margin-top:14px;">
+            The shell swap is already solved in this codebase. <code>AppShell</code> renders bare children
+            for paths in <code>PUBLIC_PATHS</code> and wraps everything else in <code>DashboardLayout</code>.
+            For this one route the branch keys off auth state rather than the path, which is a few lines in
+            an existing file.
+        </p>
+
+        <div class="callout warn" style="margin-top:22px;">
+            <strong>"Doesn't an extra page cost signups?"</strong> It would, if it were an extra page. It
+            is not: <code>FeaturesPage.tsx</code>, <code>PricingPage.tsx</code> and
+            <code>SubscriptionPricingPage.tsx</code> are all zero-byte files sitting in
+            <code>src/pages/</code> right now. Three routes were staked out for exactly this content and
+            never built. <code>/get-started</code> is those three pages, merged into the one place a
+            prospect actually looks. And the hero's direct trial button stays, so nobody who is ready gets
+            slowed down.
+        </div>
+
+        <h3 style="margin-top:30px;">Redirect and trigger rules</h3>
+        <div class="tbl-scroll" style="margin-top:10px;">
+            <table>
+                <thead>
+                    <tr><th>Condition</th><th>Behavior</th><th>Surface</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Visitor opens <code>/get-started</code></td><td>Public state, no redirect, indexable</td><td>Landing chrome</td></tr>
+                    <tr><td>Signup completes with <code>from=get-started</code></td><td>Return to <code>/get-started</code>, not <code>/dashboard</code></td><td>App chrome</td></tr>
+                    <tr><td>Signup completes from the hero shortcut</td><td>Also lands on <code>/get-started</code> once</td><td>App chrome</td></tr>
+                    <tr><td>Signed-in user, checklist incomplete</td><td>Sidebar counter and dashboard resume card persist</td><td>Nav, dashboard</td></tr>
+                    <tr><td>Checklist hits 5 of 5</td><td>Write <code>onboardingCompletedAt</code>, confirm once, demote to account menu</td><td>Account menu</td></tr>
+                    <tr><td>Trial has 3 days or fewer left</td><td>Trial pill turns amber, plans block auto-expands</td><td>Global strip</td></tr>
+                    <tr><td>Trial lapsed with no plan</td><td>Soft wall routes here, scrolled to plans</td><td>Full page</td></tr>
+                    <tr><td>Logged-in user clicks a home page CTA</td><td>Straight to <code>/dashboard</code>, never the brief</td><td>-</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- ============================ THE PAGE ============================ -->
+    <section class="block" id="page">
+        <div class="block-head">
+            <div class="eyebrow">The page</div>
+            <h2>What people actually see</h2>
+        </div>
+        <p class="prose">
+            Three screens, in the order a new operator meets them: the home page with the button on it,
+            the brief as a visitor sees it, and the same route after signup. Rendered in the product's own
+            palette. All copy is the copy to ship, not placeholder.
+        </p>
+
+        <!-- ---------- screen 1: home page ---------- -->
+        <h3 style="margin-top:30px;">1 &middot; The home page, with the button</h3>
+        <p class="prose" style="margin-top:6px;">
+            Only the nav CTA changes label and target. Everything else on the landing page stays exactly
+            as it is today.
+        </p>
+        <div class="frame" style="margin-top:14px;">
+            <div class="frame-bar">
+                <div class="frame-dots"><i></i><i></i><i></i></div>
+                <div class="frame-url">menumo.com</div>
+            </div>
+            <div class="lp">
+                <div class="lp-nav">
+                    <div class="mk-logo" style="padding:0;"><i></i> Menumo</div>
+                    <div class="lp-links">
+                        <span>Features</span><span>How it works</span><span>Why Menumo</span>
+                    </div>
+                    <div class="lp-navcta">
+                        <span class="lp-login">Log in</span>
+                        <span class="lp-primary">Let's get started<em>&rarr; /get-started</em></span>
+                    </div>
+                </div>
+                <div class="lp-hero">
+                    <div>
+                        <span class="lp-eyebrow">Built for food trucks</span>
+                        <h4>Smarter decisions for food trucks on the move</h4>
+                        <p>AI-powered insights that help you prep the right amount, price better, and waste
+                            less, without the enterprise price tag.</p>
+                        <div class="lp-btns">
+                            <span class="lp-ghost">See how it works<em>&rarr; /get-started</em></span>
+                            <span class="lp-coral">Start free trial<em>&rarr; /auth</em></span>
+                        </div>
+                    </div>
+                    <div class="lp-card">
+                        <div class="lp-card-h">
+                            <div>
+                                <small>Today's forecast</small>
+                                <b>$1,240 projected</b>
+                            </div>
+                            <span class="lp-badge">+15%</span>
+                        </div>
+                        <div class="lp-row"><small>Prep recommendation</small><b>Prep 20% more tacos for lunch rush</b></div>
+                        <div class="lp-row"><small>Waste forecast</small><b>Keep waste below 6% today</b></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="anno" style="margin-top:14px;">
+            <div class="anno-item">
+                <div class="anno-key">&rarr;</div>
+                <p><b>Two buttons now feed the brief.</b> The nav CTA is relabelled to "Let's get started". The hero's "See how it works" finally goes somewhere that actually shows how it works, instead of a login form.</p>
+            </div>
+            <div class="anno-item">
+                <div class="anno-key">&rarr;</div>
+                <p><b>"Start free trial" stays direct.</b> Two adjacent buttons with different depths: read first, or skip straight in. Nobody who is already sold gets slowed down.</p>
+            </div>
+        </div>
+
+        <!-- ---------- screen 2: public brief ---------- -->
+        <h3 style="margin-top:38px;">2 &middot; The brief, as a visitor sees it</h3>
+        <p class="prose" style="margin-top:6px;">
+            No account, no sidebar. Same content blocks as the signed-in state, but the checklist is a
+            preview and every plan button starts a trial.
+        </p>
+        <div class="frame" style="margin-top:14px;">
+            <div class="frame-bar">
+                <div class="frame-dots"><i></i><i></i><i></i></div>
+                <div class="frame-url">menumo.com/get-started</div>
+            </div>
+            <div class="lp">
+                <div class="lp-nav">
+                    <div class="mk-logo" style="padding:0;"><i></i> Menumo</div>
+                    <div class="lp-links"><span>What you get</span><span>Beta status</span><span>Plans</span></div>
+                    <div class="lp-navcta">
+                        <span class="lp-login">Log in</span>
+                        <span class="lp-primary">Start free trial</span>
+                    </div>
+                </div>
+
+                <div class="mk-strip" style="border-radius:0;">
+                    <span class="marker">A</span>
+                    <b>Menumo is in open beta.</b>
+                    <span>Everything below marked live is working today. We list what isn't, too.</span>
+                </div>
+
+                <div class="lp-brief">
+                    <span class="marker">B</span>
+                    <h4 style="display:inline;">Here's exactly what you're getting.</h4>
+                    <p>Menumo runs the money side of a food truck: what each dish really costs, what sold,
+                        what got thrown away, and what that leaves you at the end of the week. Read this in
+                        two minutes, then start a 14-day trial. No card.</p>
+                    <div class="lp-btns" style="margin-top:16px;">
+                        <span class="lp-coral">Start free trial<em>14 days of Pro</em></span>
+                        <span class="lp-ghost">See the plans</span>
+                    </div>
+                </div>
+
+                <div class="mk-pad" style="padding-bottom:24px;">
+                    <div class="mk-sec-title">
+                        <span class="marker">C</span>Setting up takes about ten minutes
+                        <small>Preview - these become your checklist</small>
+                    </div>
+                    <div class="mk-check">
+                        <div class="mk-step"><div class="mk-step-mark">1</div>
+                            <div class="mk-step-txt"><b>Add your menu items</b><span>Name, price, what goes in it</span></div>
+                            <div class="mk-step-go">~4 min</div></div>
+                        <div class="mk-step"><div class="mk-step-mark">2</div>
+                            <div class="mk-step-txt"><b>Log a day of sales</b><span>Type it in, or import a CSV</span></div>
+                            <div class="mk-step-go">~2 min</div></div>
+                        <div class="mk-step"><div class="mk-step-mark">3</div>
+                            <div class="mk-step-txt"><b>Snap a supplier invoice</b><span>We read the line items for you</span></div>
+                            <div class="mk-step-go">~1 min</div></div>
+                        <div class="mk-step"><div class="mk-step-mark">4</div>
+                            <div class="mk-step-txt"><b>Enter your recurring costs</b><span>Fuel, permits, commissary</span></div>
+                            <div class="mk-step-go">~2 min</div></div>
+                        <div class="mk-step"><div class="mk-step-mark">5</div>
+                            <div class="mk-step-txt"><b>Ask the assistant a question</b><span>"Which item makes me the least money?"</span></div>
+                            <div class="mk-step-go">~30 sec</div></div>
+                    </div>
+
+                    <div class="mk-sec-title">
+                        <span class="marker">E</span>Where Menumo honestly stands
+                        <small>Updated as things ship</small>
+                    </div>
+                    <div class="mk-status">
+                        <div class="mk-status-col">
+                            <b style="color:var(--ok);"><span class="sw" style="background:var(--ok);"></span>Live today</b>
+                            <ul><li>Menu and food costing</li><li>Orders and expenses</li><li>Inventory with expiry</li><li>Invoice photo intake</li><li>Revenue analytics</li></ul>
+                        </div>
+                        <div class="mk-status-col">
+                            <b style="color:var(--warn);"><span class="sw" style="background:var(--warn);"></span>Being built now</b>
+                            <ul><li>Customer ordering page</li><li>Marketing and loyalty</li><li>Account settings</li></ul>
+                        </div>
+                        <div class="mk-status-col">
+                            <b style="color:var(--ink-3);"><span class="sw" style="background:var(--ink-3);"></span>Planned, not started</b>
+                            <ul><li>Prep planning</li><li>Staff scheduling</li><li>Customer profiles</li><li>POS integrations</li><li>Menumo Pay</li><li>Public API</li></ul>
+                        </div>
+                    </div>
+
+                    <div class="mk-sec-title">
+                        <span class="marker">F</span>Plans
+                        <small>Every trial starts on Pro. Pick later.</small>
+                    </div>
+                    <div class="mk-tiers">
+                        <div class="mk-tier">
+                            <h4>Essentials</h4>
+                            <div class="price">$29<small>/mo</small></div>
+                            <div class="who">One truck, running the basics well.</div>
+                            <button class="mk-btn ghost" type="button">Start free trial</button>
+                        </div>
+                        <div class="mk-tier is-current">
+                            <div class="mk-tier-badge">Your trial starts here</div>
+                            <h4>Pro</h4>
+                            <div class="price">$79<small>/mo</small></div>
+                            <div class="who">The full toolkit, including invoice photo intake.</div>
+                            <button class="mk-btn" type="button">Start free trial</button>
+                        </div>
+                        <div class="mk-tier">
+                            <h4>Business</h4>
+                            <div class="price">$149<small>/mo</small></div>
+                            <div class="who">Several trucks, or a truck plus a kitchen.</div>
+                            <button class="mk-btn ghost" type="button">Start free trial</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="anno" style="margin-top:14px;">
+            <div class="anno-item">
+                <div class="anno-key">A</div>
+                <p><b>Beta above everything.</b> Before the pitch, not after it. A visitor who bounces here was never going to stay past week two.</p>
+            </div>
+            <div class="anno-item">
+                <div class="anno-key">B</div>
+                <p><b>Plain-language hero.</b> "Runs the money side of a food truck" beats any feature list. It names the job, then sets a two-minute read expectation so the page does not feel like homework.</p>
+            </div>
+            <div class="anno-item">
+                <div class="anno-key">C</div>
+                <p><b>The checklist sells here.</b> Per-step time estimates that total ten minutes answer the real objection, which is "how long until this is useful?"</p>
+            </div>
+            <div class="anno-item">
+                <div class="anno-key">E</div>
+                <p><b>Naming the gaps is the pitch.</b> Publishing an unbuilt column is what makes the "live today" column believable. Most competitors will not do this.</p>
+            </div>
+            <div class="anno-item">
+                <div class="anno-key">F</div>
+                <p><b>Every tier starts the same trial.</b> Choosing a plan pre-signup is a decision nobody can make yet. The buttons collect intent and pass it through as <code>?plan=</code>.</p>
+            </div>
+        </div>
+
+        <!-- ---------- screen 3: signed in ---------- -->
+        <h3 style="margin-top:38px;">3 &middot; The same route, after signup</h3>
+        <p class="prose" style="margin-top:6px;">
+            App chrome, greeted by name, and the five steps they were shown as a preview are now real.
+            State: day 3 of the trial, two of five done.
+        </p>
+
+        <div class="frame" style="margin-top:14px;">
+            <div class="frame-bar">
+                <div class="frame-dots"><i></i><i></i><i></i></div>
+                <div class="frame-url">app.menumo.com/get-started</div>
+            </div>
+            <div class="frame-body">
+
+                <!-- sidebar -->
+                <aside class="mk-side">
+                    <div class="mk-logo"><i></i> Menumo</div>
+                    <div class="mk-nav"><span class="dot"></span><b>Dashboard</b></div>
+                    <div class="mk-nav"><span class="dot"></span><b>Orders</b></div>
+                    <div class="mk-nav"><span class="dot"></span><b>Menu</b></div>
+                    <div class="mk-nav"><span class="dot"></span><b>Inventory</b></div>
+                    <div class="mk-nav"><span class="dot"></span><b>Expenses</b></div>
+                    <div class="mk-nav"><span class="dot"></span><b>Analytics</b></div>
+                    <div class="mk-nav"><span class="dot"></span><b>Finance</b></div>
+                    <div class="mk-nav is-cta"><b>Get started</b><span class="mk-ring-mini">2/5</span></div>
+                </aside>
+
+                <!-- canvas -->
+                <div class="mk-main">
+
+                    <div class="mk-strip">
+                        <span class="marker">A</span>
+                        <b>Open beta.</b>
+                        <span>Your data is real and kept. Some features are still landing - we say which below.</span>
+                        <a href="#beta">See what's live</a>
+                    </div>
+
+                    <div class="mk-hero">
+                        <div>
+                            <span class="marker">B</span>
+                            <h2 style="display:inline;">Welcome to Menumo, Sofia.</h2>
+                            <p>
+                                Let's get Rolling Verde earning its keep. Five short steps, about ten minutes
+                                total, and your dashboard starts telling you things you didn't know.
+                            </p>
+                        </div>
+                        <div class="mk-hero-side">
+                            <div class="mk-trial">Pro trial · 11 days left</div>
+                            <span style="font-size:11.5px;color:var(--app-muted);">No card on file</span>
+                        </div>
+                    </div>
+
+                    <div class="mk-pad">
+
+                        <!-- checklist -->
+                        <div class="mk-check">
+                            <div class="mk-check-head">
+                                <div style="flex:1;">
+                                    <h4><span class="marker">C</span>Your setup</h4>
+                                    <p>2 of 5 done · next up takes about 3 minutes</p>
+                                    <div class="mk-bar"><i></i></div>
+                                </div>
+                            </div>
+
+                            <div class="mk-step done">
+                                <div class="mk-step-mark">&#10003;</div>
+                                <div class="mk-step-txt">
+                                    <b>Add your first menu items</b>
+                                    <span>7 items with costs - food cost is calculating</span>
+                                </div>
+                                <div class="mk-step-go">Review</div>
+                            </div>
+
+                            <div class="mk-step done">
+                                <div class="mk-step-mark">&#10003;</div>
+                                <div class="mk-step-txt">
+                                    <b>Log a day of sales</b>
+                                    <span>34 orders on Jul 24</span>
+                                </div>
+                                <div class="mk-step-go">Review</div>
+                            </div>
+
+                            <div class="mk-step next">
+                                <div class="mk-step-mark">3</div>
+                                <div class="mk-step-txt">
+                                    <b>Snap a supplier invoice</b>
+                                    <span>Photo it, we read the line items and stock your inventory</span>
+                                </div>
+                                <div class="mk-step-go">Start &rarr;</div>
+                            </div>
+
+                            <div class="mk-step">
+                                <div class="mk-step-mark">4</div>
+                                <div class="mk-step-txt">
+                                    <b>Enter your recurring costs</b>
+                                    <span>Fuel, permits, commissary - needed for true profit</span>
+                                </div>
+                                <div class="mk-step-go">Open</div>
+                            </div>
+
+                            <div class="mk-step">
+                                <div class="mk-step-mark">5</div>
+                                <div class="mk-step-txt">
+                                    <b>Ask the assistant one question</b>
+                                    <span>Try: "which item makes me the least money?"</span>
+                                </div>
+                                <div class="mk-step-go">Open</div>
+                            </div>
+                        </div>
+
+                        <!-- features -->
+                        <div class="mk-sec-title">
+                            <span class="marker">D</span>What you can do today
+                            <small>Everything here is live right now</small>
+                        </div>
+                        <div class="mk-tiles">
+                            <div class="mk-tile">
+                                <div class="mk-tile-ico"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M3 3h6v8H3V3zm8 0h6v5h-6V3zM3 13h6v4H3v-4zm8-3h6v7h-6v-7z"/></svg></div>
+                                <b>Daily dashboard</b>
+                                <span>Sales, orders and margin for today against your recent average.</span>
+                                <em>/dashboard</em>
+                            </div>
+                            <div class="mk-tile">
+                                <div class="mk-tile-ico"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 1l2.6 5.3 5.9.9-4.3 4.1 1 5.8L10 14.4 4.8 17.1l1-5.8L1.5 7.2l5.9-.9L10 1z"/></svg></div>
+                                <b>Food cost per item</b>
+                                <span>Price against real ingredient cost and see the true margin on every dish.</span>
+                                <em>/menu</em>
+                            </div>
+                            <div class="mk-tile">
+                                <div class="mk-tile-ico"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 3h12l1 4H3l1-4zm-1 6h14v8H3V9zm4 2v4h6v-4H7z"/></svg></div>
+                                <b>Invoice photo intake</b>
+                                <span>Photograph a supplier invoice and we read the lines into inventory with batches and expiry.</span>
+                                <em>/inventory</em>
+                            </div>
+                            <div class="mk-tile">
+                                <div class="mk-tile-ico"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M3 16l4-6 3 3 4-7 3 4v6H3z" opacity=".85"/><path d="M2 17h16v1.5H2z"/></svg></div>
+                                <b>Revenue analytics</b>
+                                <span>Trends, best and worst sellers, and a menu matrix that says what to cut.</span>
+                                <em>/analytics/revenue</em>
+                            </div>
+                            <div class="mk-tile">
+                                <div class="mk-tile-ico"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zm.9 12.2v1.1H9.2v-1.1c-1.3-.2-2.3-1-2.4-2.3h1.7c.1.6.7 1 1.5 1 .8 0 1.3-.4 1.3-.9 0-.6-.5-.8-1.7-1.1C8 10.6 7 10.1 7 8.7c0-1.2 .9-2 2.2-2.2V5.4h1.7v1.1c1.2.2 2.1 1 2.2 2.2h-1.7c-.1-.5-.5-.9-1.2-.9-.7 0-1.2.3-1.2.8 0 .5.5.8 1.7 1.1 1.6.4 2.5.9 2.5 2.3 0 1.2-.9 2-2.3 2.2z"/></svg></div>
+                                <b>Expenses and profit</b>
+                                <span>Log costs once, get a real P&amp;L instead of a guess at the end of the month.</span>
+                                <em>/expenses · /finance</em>
+                            </div>
+                            <div class="mk-tile">
+                                <div class="mk-tile-ico"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a6 6 0 016 6c0 4.2-6 10-6 10S4 12.2 4 8a6 6 0 016-6zm0 3.6A2.4 2.4 0 1010 10.4 2.4 2.4 0 0010 5.6z"/></svg></div>
+                                <b>Service locations</b>
+                                <span>Track where you park and which spots actually pay.</span>
+                                <em>/locations</em>
+                            </div>
+                            <div class="mk-tile">
+                                <div class="mk-tile-ico"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 1.8l1.6 3.4 3.7.5-2.7 2.6.7 3.7L10 10.3 6.7 12l.7-3.7L4.7 5.7l3.7-.5L10 1.8z"/><path d="M5 14h10v1.6H5zm2 3h6v1.5H7z"/></svg></div>
+                                <b>AI assistant</b>
+                                <span>Ask about your own numbers in plain language, from any screen.</span>
+                                <em>bottom-right dock</em>
+                            </div>
+                            <div class="mk-tile locked">
+                                <div class="mk-tile-ico"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M6 8V6a4 4 0 118 0v2h1.5v9h-11V8H6zm2 0h4V6a2 2 0 10-4 0v2z"/></svg></div>
+                                <b>Marketing and loyalty</b>
+                                <span>Built, not switched on yet. Landing during beta on Pro and Business.</span>
+                                <em>coming soon</em>
+                            </div>
+                        </div>
+
+                        <!-- beta status -->
+                        <div class="mk-sec-title">
+                            <span class="marker">E</span>Where Menumo is right now
+                            <small>Updated as things ship</small>
+                        </div>
+                        <div class="mk-status">
+                            <div class="mk-status-col">
+                                <b style="color:var(--ok);"><span class="sw" style="background:var(--ok);"></span>Live and stable</b>
+                                <ul>
+                                    <li>Menu and food costing</li>
+                                    <li>Orders and expenses</li>
+                                    <li>Inventory with batch and expiry</li>
+                                    <li>Invoice photo intake</li>
+                                    <li>Revenue analytics</li>
+                                    <li>Finance and tax summary</li>
+                                </ul>
+                            </div>
+                            <div class="mk-status-col">
+                                <b style="color:var(--warn);"><span class="sw" style="background:var(--warn);"></span>Being built now</b>
+                                <ul>
+                                    <li>Customer ordering page</li>
+                                    <li>Marketing and loyalty</li>
+                                    <li>Account settings</li>
+                                </ul>
+                            </div>
+                            <div class="mk-status-col">
+                                <b style="color:var(--ink-3);"><span class="sw" style="background:var(--ink-3);"></span>Planned, not started</b>
+                                <ul>
+                                    <li>Prep planning</li>
+                                    <li>Staff scheduling</li>
+                                    <li>Customer profiles</li>
+                                    <li>Alerts and notifications</li>
+                                    <li>POS integrations</li>
+                                    <li>Menumo Pay</li>
+                                    <li>Public API</li>
+                                    <li>Multi-location rollup</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- plans -->
+                        <div class="mk-sec-title">
+                            <span class="marker">F</span>Plans, when your trial ends
+                            <small>Pick any time - nothing changes until day 15</small>
+                        </div>
+                        <div class="mk-tiers">
+                            <div class="mk-tier">
+                                <h4>Essentials</h4>
+                                <div class="price">$29<small>/mo</small></div>
+                                <div class="who">One truck, running the basics well.</div>
+                                <ul>
+                                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 111.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z"/></svg>Dashboard and food costing</li>
+                                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 111.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z"/></svg>Orders, expenses, inventory</li>
+                                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 111.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z"/></svg>90 days of history</li>
+                                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 111.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z"/></svg>10 AI questions a week</li>
+                                    <li class="off"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M6 9.2h8v1.6H6z"/></svg>No invoice photo intake</li>
+                                </ul>
+                                <button class="mk-btn ghost" type="button">Choose Essentials</button>
+                            </div>
+
+                            <div class="mk-tier is-current">
+                                <div class="mk-tier-badge">Your trial</div>
+                                <h4>Pro</h4>
+                                <div class="price">$79<small>/mo</small></div>
+                                <div class="who">The full toolkit. What you are using right now.</div>
+                                <ul>
+                                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 111.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z"/></svg>Everything in Essentials</li>
+                                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 111.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z"/></svg>Invoice photo intake</li>
+                                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 111.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z"/></svg>Waste tracking and POS sync</li>
+                                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 111.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z"/></svg>Unlimited history</li>
+                                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 111.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z"/></svg>30 AI questions a week</li>
+                                </ul>
+                                <button class="mk-btn" type="button">Keep Pro</button>
+                            </div>
+
+                            <div class="mk-tier">
+                                <h4>Business</h4>
+                                <div class="price">$149<small>/mo</small></div>
+                                <div class="who">Several trucks, or a truck plus a kitchen.</div>
+                                <ul>
+                                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 111.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z"/></svg>Everything in Pro</li>
+                                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 111.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z"/></svg>Up to 10 locations</li>
+                                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 111.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z"/></svg>Advanced P&amp;L</li>
+                                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 111.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z"/></svg>Menumo Pay and API</li>
+                                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 111.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z"/></svg>75 AI questions a week</li>
+                                </ul>
+                                <button class="mk-btn ghost" type="button">Choose Business</button>
+                            </div>
+                        </div>
+
+                        <div style="margin-top:22px;padding:16px 18px;border-radius:14px;background:var(--app-paper);border:1px solid var(--app-line);display:flex;gap:14px;align-items:center;flex-wrap:wrap;">
+                            <div style="flex:1;min-width:220px;">
+                                <b style="font-size:13.5px;color:var(--app-ink);"><span class="marker">G</span>Found something broken? <span class="pill warn" style="margin-left:4px;">not shipped</span></b>
+                                <p style="margin:4px 0 0;font-size:12.5px;color:var(--app-muted);">
+                                    Beta accounts get a direct line. Tell us what happened and we usually reply the same day.
+                                </p>
+                            </div>
+                            <button class="mk-btn ghost" type="button">Report an issue</button>
+                            <button class="mk-btn" type="button">Book 15 min with us</button>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- annotations -->
+        <h3 style="margin-top:30px;">Why each block sits where it does</h3>
+        <div class="anno">
+            <div class="anno-item">
+                <div class="anno-key">A</div>
+                <p><b>Beta strip, first.</b> Context before any promise. Persistent, not dismissible on this page - it is the page's honesty contract. Elsewhere in the app it is dismissible per session.</p>
+            </div>
+            <div class="anno-item">
+                <div class="anno-key">B</div>
+                <p><b>Named greeting, named truck.</b> Both are already on the account record. It costs one interpolation and it is the difference between a product and a form.</p>
+            </div>
+            <div class="anno-item">
+                <div class="anno-key">C</div>
+                <p><b>Checklist above features.</b> The highest-value thing on the page. Exactly one step carries the coral button - a single next action, never five equal ones.</p>
+            </div>
+            <div class="anno-item">
+                <div class="anno-key">D</div>
+                <p><b>Features named by outcome.</b> "Food cost per item", not "menu module". The mockup once printed each tile's route as a caption on the theory that it taught navigation - that was wrong and is not shipped. Nobody navigates a sidebar app by URL, so a route in the copy is just an implementation detail on show. The route lives in the link target; the card says "Open".</p>
+            </div>
+            <div class="anno-item">
+                <div class="anno-key">E</div>
+                <p><b>Three columns, no spin.</b> Naming the unbuilt things is what makes the "live" column believable. This is the block that earns the beta.</p>
+            </div>
+            <div class="anno-item">
+                <div class="anno-key">F</div>
+                <p><b>Plans last, trial card marked.</b> The current plan is outlined rather than a "most popular" flag - the user is already on Pro, so the honest emphasis is on what they would lose by dropping.</p>
+            </div>
+            <div class="anno-item">
+                <div class="anno-key">G</div>
+                <p><b>Feedback at the exit - designed, not shipped.</b> Asking after they have seen the gaps gets specific reports instead of vague ones. Held back until there is a real destination: a promise of a same-day reply behind a dead <code>mailto</code> costs more trust than it earns. See the open question below.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================ BETA ============================ -->
+    <section class="block" id="beta">
+        <div class="block-head">
+            <div class="eyebrow">Beta framing</div>
+            <h2>How honest to be, and the exact words</h2>
+        </div>
+
+        <div class="grid-2">
+            <div class="card">
+                <h3>What we say</h3>
+                <ul class="plain" style="margin-top:12px;">
+                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 111.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z"/></svg>
+                        <span><b>"Your data is real and kept."</b> The single biggest beta fear is that the work gets wiped. Kill it in the first line.</span></li>
+                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 111.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z"/></svg>
+                        <span><b>"Some features are still landing - we say which."</b> Then actually say which, in block E. A vague admission is worse than none.</span></li>
+                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 111.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z"/></svg>
+                        <span><b>"Beta accounts get a direct line."</b> Trades polish for access. That is a fair deal and operators recognize it as one.</span></li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>What we avoid</h3>
+                <ul class="plain" style="margin-top:12px;">
+                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M6 9.2h8v1.6H6z"/></svg>
+                        <span>Apologizing. "Sorry, we're still in beta" invites the reader to lower their estimate of the whole product.</span></li>
+                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M6 9.2h8v1.6H6z"/></svg>
+                        <span>Dated promises. "Scheduling ships in August" becomes a broken promise the moment it slips. Ship order, not dates.</span></li>
+                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M6 9.2h8v1.6H6z"/></svg>
+                        <span>Hiding beta below the fold. If they discover it from a bug instead of from us, the trust cost is far higher.</span></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="callout warn" style="margin-top:18px;">
+            <strong>Needs your sign-off before it ships:</strong> a founding-rate promise - something like
+            <em>"beta accounts keep this price for 12 months after we leave beta"</em> - is the strongest
+            reason to subscribe during beta rather than wait. It is also a binding commercial commitment,
+            so it is deliberately absent from the mockup. Tell me the terms and I will write it in.
+        </div>
+    </section>
+
+    <!-- ============================ STATES ============================ -->
+    <section class="block" id="states">
+        <div class="block-head">
+            <div class="eyebrow">States</div>
+            <h2>The page under every condition</h2>
+        </div>
+        <div class="tbl-scroll">
+            <table>
+                <thead>
+                    <tr><th>State</th><th>Hero</th><th>Checklist</th><th>Plans block</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><b>Visitor</b><span class="cell-sub">signed out</span></td>
+                        <td>"Here's exactly what you're getting."</td>
+                        <td>Static preview with time estimates</td>
+                        <td>Expanded, all three "Start free trial"</td>
+                    </tr>
+                    <tr>
+                        <td><b>First visit signed in</b><span class="cell-sub">0 of 5</span></td>
+                        <td>"Welcome to Menumo, {name}."</td>
+                        <td>All open, step 1 emphasized</td>
+                        <td>Collapsed to a one-line summary</td>
+                    </tr>
+                    <tr>
+                        <td><b>In progress</b><span class="cell-sub">1-4 of 5</span></td>
+                        <td>"Nearly there" once 3 are done</td>
+                        <td>Done steps struck through and demoted</td>
+                        <td>Collapsed</td>
+                    </tr>
+                    <tr>
+                        <td><b>Complete</b><span class="cell-sub">5 of 5</span></td>
+                        <td>"You're set up." One-time confirmation</td>
+                        <td>Collapses into a single done row</td>
+                        <td>Expands - now the useful part</td>
+                    </tr>
+                    <tr>
+                        <td><b>Trial ending</b><span class="cell-sub">3 days or fewer</span></td>
+                        <td>Trial pill turns amber</td>
+                        <td>Unchanged</td>
+                        <td>Auto-expanded, page scrolls here on entry</td>
+                    </tr>
+                    <tr>
+                        <td><b>Lapsed</b><span class="cell-sub">no plan</span></td>
+                        <td>"Pick a plan to keep going"</td>
+                        <td>Hidden</td>
+                        <td>Full width, primary content</td>
+                    </tr>
+                    <tr>
+                        <td><b>Subscribed</b></td>
+                        <td>Plan name replaces trial pill</td>
+                        <td>Shown only if incomplete</td>
+                        <td>Becomes "Your plan" with a change link</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- ============================ BUILD ============================ -->
+    <section class="block" id="build">
+        <div class="block-head">
+            <div class="eyebrow">Build notes</div>
+            <h2>What it takes to ship this</h2>
+        </div>
+
+        <div class="grid-2">
+            <div class="card">
+                <h3>New files</h3>
+                <ul class="plain" style="margin-top:12px;">
+                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 3h8l4 4v10H4V3zm8 1.5V7h2.5L12 4.5z"/></svg><span><code>src/pages/GetStartedPage.tsx</code> - the route, branching on auth state</span></li>
+                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 3h8l4 4v10H4V3zm8 1.5V7h2.5L12 4.5z"/></svg><span><code>src/components/onboarding/</code> - checklist, status board, tier cards</span></li>
+                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 3h8l4 4v10H4V3zm8 1.5V7h2.5L12 4.5z"/></svg><span><code>src/hooks/useOnboardingProgress.ts</code> - derives the 5 ticks from real collections</span></li>
+                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 3h8l4 4v10H4V3zm8 1.5V7h2.5L12 4.5z"/></svg><span><code>src/config/plans.ts</code> - already called for by the subscription plan; both pages read it</span></li>
+                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 3h8l4 4v10H4V3zm8 1.5V7h2.5L12 4.5z"/></svg><span><code>src/config/betaStatus.ts</code> - the three status columns as data, so updating them is a one-line edit</span></li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>Files to change</h3>
+                <ul class="plain" style="margin-top:12px;">
+                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M13.5 3.5l3 3L8 15H5v-3l8.5-8.5z"/></svg><span><code>routes/AppRoutes.tsx</code> - add <code>/get-started</code> as a public route, no guard</span></li>
+                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M13.5 3.5l3 3L8 15H5v-3l8.5-8.5z"/></svg><span><code>layout/DashboardLayout.tsx</code> - nav item with counter; fix the dead Settings and Help links</span></li>
+                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M13.5 3.5l3 3L8 15H5v-3l8.5-8.5z"/></svg><span><code>pages/LandingPage.tsx</code> - relabel the nav CTA and repoint 5 of its 8 <code>/auth</code> links</span></li>
+                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M13.5 3.5l3 3L8 15H5v-3l8.5-8.5z"/></svg><span><code>layout/AppShell.tsx</code> - <code>/get-started</code> picks its shell by auth state, not by <code>PUBLIC_PATHS</code></span></li>
+                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M13.5 3.5l3 3L8 15H5v-3l8.5-8.5z"/></svg><span><code>pages/AuthPage.tsx</code> - read <code>?plan</code> and <code>?from</code>, redirect back to <code>/get-started</code></span></li>
+                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M13.5 3.5l3 3L8 15H5v-3l8.5-8.5z"/></svg><span><code>pages/DashboardPage.tsx</code> - resume card while incomplete</span></li>
+                    <li><svg viewBox="0 0 20 20" fill="currentColor"><path d="M13.5 3.5l3 3L8 15H5v-3l8.5-8.5z"/></svg><span><code>models/account.ts</code> + <code>schema.cue</code> - add <code>onboardingCompletedAt</code></span></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="callout" style="margin-top:18px;">
+            <strong>Sequencing:</strong> the public state ships first and alone. It reads
+            <code>src/config/plans.ts</code> and <code>src/config/betaStatus.ts</code> and touches no
+            account data, so it has zero dependency on the entitlement layer or on the tier rename. That
+            makes it the cheapest useful thing in the backlog: it closes three empty routes and gives the
+            landing page somewhere to point. The signed-in state follows once
+            <code>onboardingCompletedAt</code> exists.
+        </div>
+
+        <div class="callout warn" style="margin-top:14px;">
+            <strong>Delete on the way past:</strong> <code>src/pages/FeaturesPage.tsx</code>,
+            <code>src/pages/PricingPage.tsx</code> and <code>src/pages/SubscriptionPricingPage.tsx</code>
+            are zero-byte and unrouted. Once <code>/get-started</code> exists they are dead weight that
+            will confuse the next person reading the tree. Remove them in the same PR.
+        </div>
+
+        <h3 style="margin-top:26px;">Open questions</h3>
+        <div class="tbl-scroll" style="margin-top:10px;">
+            <table>
+                <thead><tr><th>Question</th><th>Why it matters</th><th>My default if you don't answer</th></tr></thead>
+                <tbody>
+                    <tr>
+                        <td>Founding-rate promise during beta?</td>
+                        <td>Strongest reason to subscribe now instead of waiting. Stronger still pre-signup</td>
+                        <td>Leave it out</td>
+                    </tr>
+                    <tr>
+                        <td>Does the nav CTA say "Let's get started" or just "Get started"?</td>
+                        <td>Longer label crowds the nav at tablet widths</td>
+                        <td>"Let's get started" on desktop, "Get started" under 768px</td>
+                    </tr>
+                    <tr>
+                        <td>Does <code>/get-started</code> get indexed by search engines?</td>
+                        <td>It is the honest pricing and status page, so it is the one worth ranking</td>
+                        <td>Yes, index it and link it from the footer</td>
+                    </tr>
+                    <tr>
+                        <td>Is the trial 14 days of Pro, no card?</td>
+                        <td>Drives hero copy and the whole trial state machine</td>
+                        <td>Yes, per the subscription plan doc</td>
+                    </tr>
+                    <tr>
+                        <td><b>Where does beta feedback actually go?</b><span class="cell-sub">blocking - block G is not shipped</span></td>
+                        <td>A <code>mailto</code> fails silently with no mail client configured, and carries no page, browser or version context. The block is cut from the live page until this is answered</td>
+                        <td>Nothing. Ship a <code>supportTickets</code> collection with a mailto fallback once there is a monitored inbox</td>
+                    </tr>
+                    <tr>
+                        <td>Should staff-role users see this page?</td>
+                        <td>They cannot change plans, so the tier block is noise for them</td>
+                        <td>Show checklist and features, hide plans</td>
+                    </tr>
+                    <tr>
+                        <td>Is 5 steps right, or is snapping an invoice too much for day one?</td>
+                        <td>Longer checklists complete less often</td>
+                        <td>Keep 5, make step 3 skippable</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+</main>
+</div>
+
+<!-- ============================ CHAT DOCK ============================ -->
+<button class="chat-toggle" id="chatToggle" type="button" aria-expanded="false" aria-controls="chatPanel">
+    Ask &amp; give feedback
+</button>
+
+<aside class="chat" id="chatPanel" aria-label="Review thread">
+    <div class="chat-head">
+        <div>
+            <h2>Review thread</h2>
+            <p>Goes straight to Claude in your terminal</p>
+        </div>
+        <span class="chat-status" id="chatStatus" aria-live="polite"><i></i><span>connecting</span></span>
+    </div>
+
+    <div class="chat-log" id="chatLog" aria-live="polite"></div>
+
+    <div class="chat-quick" id="chatQuick">
+        <button type="button">Where should this live?</button>
+        <button type="button">Beta section is too blunt</button>
+        <button type="button">Reorder plans higher</button>
+        <button type="button">Cut a checklist step</button>
+    </div>
+    <p class="chat-hint">Enter sends. Shift+Enter for a new line.</p>
+
+    <form class="chat-form" id="chatForm">
+        <label class="visually-hidden" for="chatInput" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Your message</label>
+        <textarea id="chatInput" placeholder="Ask about a decision, or tell me what to change..."></textarea>
+        <button class="chat-send" id="chatSend" type="submit">Send to Claude</button>
+    </form>
+</aside>
+
+<script>
+(function () {
+    "use strict";
+
+    /* ---------- theme ---------- */
+    var root = document.documentElement;
+    var themeBtn = document.getElementById("themeBtn");
+    themeBtn.addEventListener("click", function () {
+        var dark = root.getAttribute("data-theme") === "dark"
+            || (!root.getAttribute("data-theme")
+                && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        root.setAttribute("data-theme", dark ? "light" : "dark");
+    });
+
+    /* ---------- chat dock ---------- */
+    var log = document.getElementById("chatLog");
+    var form = document.getElementById("chatForm");
+    var input = document.getElementById("chatInput");
+    var sendBtn = document.getElementById("chatSend");
+    var statusEl = document.getElementById("chatStatus");
+    var toggle = document.getElementById("chatToggle");
+    var panel = document.getElementById("chatPanel");
+    var shown = 0;
+
+    toggle.addEventListener("click", function () {
+        var open = panel.classList.toggle("open");
+        toggle.setAttribute("aria-expanded", String(open));
+    });
+
+    function setStatus(state, text) {
+        statusEl.className = "chat-status " + state;
+        statusEl.lastElementChild.textContent = text;
+    }
+
+    function render(messages) {
+        messages.forEach(function (m) {
+            var el = document.createElement("div");
+            el.className = "msg " + (m.role === "user" ? "user" : "assistant");
+            var who = document.createElement("span");
+            who.className = "msg-who";
+            who.textContent = m.role === "user" ? "You" : "Claude";
+            el.appendChild(who);
+            el.appendChild(document.createTextNode(m.text));
+            log.appendChild(el);
+        });
+        if (messages.length) log.scrollTop = log.scrollHeight;
+    }
+
+    function poll() {
+        fetch("/api/messages?since=" + shown, { cache: "no-store" })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.messages && data.messages.length) {
+                    render(data.messages);
+                    shown = data.total;
+                }
+                setStatus("on", "connected");
+            })
+            .catch(function () {
+                setStatus("off", "server offline");
+            });
+    }
+
+    function send(text) {
+        if (!text.trim()) return;
+        sendBtn.disabled = true;
+        fetch("/api/messages", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ text: text })
+        })
+            .then(function () { input.value = ""; poll(); })
+            .catch(function () { setStatus("off", "send failed"); })
+            .finally(function () { sendBtn.disabled = false; input.focus(); });
+    }
+
+    form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        send(input.value);
+    });
+
+    input.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            send(input.value);
+        }
+    });
+
+    document.getElementById("chatQuick").addEventListener("click", function (e) {
+        var btn = e.target.closest("button");
+        if (!btn) return;
+        input.value = btn.textContent.trim();
+        input.focus();
+    });
+
+    poll();
+    setInterval(poll, 2500);
+}());
+</script>
+
+</body>
+</html>

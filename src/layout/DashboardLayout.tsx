@@ -29,7 +29,9 @@ import {
     UtensilsCrossed,
     MapPin,
     Boxes,
+    Rocket,
 } from "lucide-react";
+import { useOnboardingProgress } from "../hooks/useOnboardingProgress";
 
 interface DashboardLayoutProps {
     children: React.ReactNode;
@@ -47,8 +49,8 @@ export function DashboardLayout({
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
     const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
 
-    const { user } = useAuth();
-    const { account } = useAccount();
+    const { user, isInternal } = useAuth();
+    const { account, accountId } = useAccount();
 
     const notifications = [
         {
@@ -170,6 +172,15 @@ export function DashboardLayout({
         navigate("/dashboard");
     };
 
+    // Only query progress while setup is unfinished. Once the account carries
+    // `onboardingCompletedAt` this passes null, the hook makes no reads at all,
+    // and the nav item disappears.
+    const onboardingDone = Boolean(account?.onboardingCompletedAt);
+    const { completed, total, allDone } = useOnboardingProgress(
+        onboardingDone ? null : accountId,
+    );
+    const showGetStarted = !onboardingDone && !allDone;
+
     const navItems = [
         { path: "/dashboard", label: "Dashboard", icon: Home },
         { path: "/analytics/revenue", label: "Analytics", icon: BarChart3 },
@@ -179,7 +190,11 @@ export function DashboardLayout({
         { path: "/inventory", label: "Inventory", icon: Boxes },
         { path: "/expenses", label: "Expenses", icon: DollarSign },
         { path: "/locations", label: "Locations", icon: MapPin },
-        { path: "/dev", label: "Dev Console", icon: BarChart3 },
+        // Internal tooling. Hidden from customers entirely rather than shown
+        // and then blocked - a menu item you cannot use is just confusing.
+        ...(isInternal
+            ? [{ path: "/dev", label: "Dev Console", icon: BarChart3 }]
+            : []),
     ];
 
     return (
@@ -303,6 +318,33 @@ export function DashboardLayout({
                                 </NavLink>
                             );
                         })}
+
+                        {showGetStarted && (
+                            <NavLink
+                                to="/get-started"
+                                className={({ isActive }) =>
+                                    `mt-2 flex w-full items-center gap-3 rounded-lg border border-dashed border-teal-300 px-3 py-2 text-left transition-all ${isActive
+                                        ? "bg-teal-50 font-medium text-teal-700"
+                                        : "text-teal-700 hover:bg-teal-50"
+                                    } ${!isSidebarOpen ? "justify-center" : ""}`
+                                }
+                                title={
+                                    !isSidebarOpen
+                                        ? `Get started (${completed}/${total})`
+                                        : undefined
+                                }
+                            >
+                                <Rocket className="h-5 w-5 flex-shrink-0" />
+                                {isSidebarOpen && (
+                                    <>
+                                        <span>Get started</span>
+                                        <span className="ml-auto rounded-full bg-teal-100 px-2 py-0.5 font-mono text-[11px] font-semibold tabular-nums">
+                                            {completed}/{total}
+                                        </span>
+                                    </>
+                                )}
+                            </NavLink>
+                        )}
                     </nav>
                 </aside>
 
@@ -353,6 +395,25 @@ export function DashboardLayout({
                                         </NavLink>
                                     );
                                 })}
+
+                                {showGetStarted && (
+                                    <NavLink
+                                        to="/get-started"
+                                        onClick={() => setIsMobileSidebarOpen(false)}
+                                        className={({ isActive }) =>
+                                            `mt-2 flex w-full items-center gap-3 rounded-lg border border-dashed border-teal-300 px-3 py-2 text-left ${isActive
+                                                ? "bg-teal-50 font-medium text-teal-700"
+                                                : "text-teal-700 hover:bg-teal-50"
+                                            }`
+                                        }
+                                    >
+                                        <Rocket className="h-5 w-5" />
+                                        <span>Get started</span>
+                                        <span className="ml-auto rounded-full bg-teal-100 px-2 py-0.5 font-mono text-[11px] font-semibold tabular-nums">
+                                            {completed}/{total}
+                                        </span>
+                                    </NavLink>
+                                )}
                             </nav>
                         </aside>
                     </>
@@ -497,7 +558,7 @@ export function DashboardLayout({
                             <button
                                 onClick={() => {
                                     setIsAccountMenuOpen(false);
-                                    navigate("/dashboard");
+                                    navigate("/get-started");
                                 }}
                                 className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50"
                             >

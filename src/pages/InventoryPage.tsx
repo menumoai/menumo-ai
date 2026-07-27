@@ -3,6 +3,7 @@ import { useMemo, useRef, useState } from "react";
 import { Boxes } from "lucide-react";
 
 import { useAccount } from "../account/AccountContext";
+import { accountLabel } from "../account/accountLabel";
 import { useInventory } from "../hooks/useInventory";
 import { computeInventorySummary } from "../analysis/inventory";
 import { summarizeBatchRisk } from "../analysis/shelfLife";
@@ -15,8 +16,9 @@ import {
 } from "../services/ocrClient";
 import { logReceivedInventory } from "../services/receiptIntake";
 import {
-    InventoryHero,
+    InventoryEmptyState,
     InventoryStats,
+    InventoryStatusBar,
 } from "../components/inventory/InventoryStats";
 import {
     RecordMovementCard,
@@ -30,7 +32,6 @@ import {
     type ReceiptConfirmPayload,
 } from "../components/inventory/ReceiptReviewDialog";
 import { ExpiringBatchesCard } from "../components/inventory/ExpiringBatchesCard";
-import { formatMoney } from "../components/inventory/format";
 
 export default function InventoryPage() {
     const { accountId, account } = useAccount();
@@ -49,7 +50,7 @@ export default function InventoryPage() {
     const [actionError, setActionError] = useState<string | null>(null);
     const [actionNotice, setActionNotice] = useState<string | null>(null);
 
-    const accountName = account?.name ?? accountId ?? "your account";
+    const accountName = accountLabel(account);
 
     const summary = useMemo(
         () => computeInventorySummary(products),
@@ -57,6 +58,14 @@ export default function InventoryPage() {
     );
 
     const batchRisk = useMemo(() => summarizeBatchRisk(batches), [batches]);
+
+    // Drives the whole page shape: empty state, or status bar plus stat grid.
+    //
+    // `loading` matters here. Products start as [] while the first fetch is in
+    // flight, so keying purely off trackedCount would flash "Start tracking
+    // your stock" at an account that has plenty, on every single visit.
+    const hasStock = summary.trackedCount > 0;
+    const showEmptyState = !loading && !hasStock;
 
     const formProducts = useMemo(
         () =>
@@ -81,9 +90,13 @@ export default function InventoryPage() {
         await reload();
     }
 
+    function scrollToForm() {
+        formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+
     function focusProductInForm(productId: string) {
         setSelectedProductId(productId);
-        formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        scrollToForm();
     }
 
     async function handleScanReceipt(file: File) {
@@ -169,21 +182,16 @@ export default function InventoryPage() {
                         </p>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    {/* On-hand value used to sit here too. It is already the
+                        fourth stat card, and printing it twice on one screen
+                        made the header read like a dashboard it is not. */}
+                    {hasStock ? (
                         <ScanReceiptButton
                             onSelect={handleScanReceipt}
                             loading={scanning}
                             disabled={!accountId}
                         />
-                        <div className="rounded-2xl border border-gray-100 bg-white px-5 py-4 text-right shadow-sm">
-                            <div className="text-xs uppercase tracking-wide text-gray-500">
-                                On-hand value
-                            </div>
-                            <div className="text-2xl font-bold text-gray-900">
-                                {formatMoney(summary.totalValue)}
-                            </div>
-                        </div>
-                    </div>
+                    ) : null}
                 </div>
 
                 {error ? (
@@ -204,11 +212,32 @@ export default function InventoryPage() {
                     </div>
                 ) : null}
 
-                {/* Hero */}
-                <InventoryHero summary={summary} accountName={accountName} />
-
-                {/* Quick Stats */}
-                <InventoryStats summary={summary} />
+                {/* Nothing tracked yet: one empty state carrying the two real
+                    ways in, instead of a hero plus a grid of zeros. While the
+                    first fetch is in flight we show neither, so an account with
+                    stock never flashes the empty state on the way in. */}
+                {hasStock ? (
+                    <>
+                        <InventoryStatusBar summary={summary} />
+                        <InventoryStats summary={summary} />
+                    </>
+                ) : showEmptyState ? (
+                    <InventoryEmptyState
+                        onRecordMovement={scrollToForm}
+                        scanSlot={
+                            <ScanReceiptButton
+                                onSelect={handleScanReceipt}
+                                loading={scanning}
+                                disabled={!accountId}
+                            />
+                        }
+                    />
+                ) : (
+                    <div
+                        className="h-28 animate-pulse rounded-2xl border border-gray-100 bg-white"
+                        aria-hidden="true"
+                    />
+                )}
 
                 {/* Expiring batches (from OCR'd receipts) */}
                 <ExpiringBatchesCard summary={batchRisk} products={products} />

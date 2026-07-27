@@ -17,6 +17,8 @@ type AuthContextValue = {
     isCustomer: boolean;
     isBusinessOwner: boolean;
     isStaff: boolean;
+    /** Menumo staff. Gates internal tooling only - never customer features. */
+    isInternal: boolean;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -84,6 +86,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isCustomer = profile?.kind === "customer";
     const isBusinessOwner = profile?.kind === "business_owner";
     const isStaff = profile?.kind === "staff";
+    // Strict equality: a truthy-but-not-true value must not grant access.
+    const isInternal = profile?.isInternal === true;
 
     return (
         <AuthContext.Provider
@@ -96,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 isCustomer,
                 isBusinessOwner,
                 isStaff,
+                isInternal,
             }}
         >
             {children}

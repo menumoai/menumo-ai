@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 
 import { useAccount } from "../account/AccountContext";
+import { accountLabel } from "../account/accountLabel";
+import { DEMO_ACCOUNT_ID } from "../config";
 import { useAuth } from "../auth/AuthContext";
 
 import { createBusinessAccount, getBusinessAccount } from "../services/accounts";
@@ -274,8 +276,15 @@ export function DevConsole() {
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [expenses, setExpenses] = useState<Expense[]>([]);
 
-    const { accountId, loading: accountLoading, account } = useAccount();
+    const { loading: accountLoading, account } = useAccount();
     const { user } = useAuth();
+
+    // Every seed and read below targets the demo account, never the signed-in
+    // user's own. `handleSeedAccountAndOwner` writes "Demo Taco Truck" over the
+    // account name and lets createBusinessAccount reset subscriptionTier and
+    // subscriptionStatus to their defaults, so aiming this at a live account
+    // silently destroys a real customer's business record and plan.
+    const accountId = DEMO_ACCOUNT_ID;
 
     if (accountLoading) {
         return (
@@ -285,13 +294,7 @@ export function DevConsole() {
         );
     }
 
-    if (!accountId) {
-        return (
-            <p className="px-6 py-6 text-sm text-slate-600">
-                No account selected.
-            </p>
-        );
-    }
+    // No "no account selected" branch any more: the target is a constant.
 
     const dateDaysAgo = (daysAgo: number) => {
         const date = new Date();
@@ -739,16 +742,18 @@ export function DevConsole() {
                         </div>
 
                         <p className="text-gray-600">
-                            Seed and inspect demo data for{" "}
+                            Seeds and inspects the shared demo account. Nothing
+                            here touches{" "}
                             <span className="font-medium text-gray-900">
-                                {account?.name ?? accountId}
+                                {accountLabel(account)}
                             </span>
+                            .
                         </p>
                     </div>
 
                     <div className="rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
                         <div className="text-xs uppercase tracking-wide text-gray-500">
-                            Account
+                            Writing to
                         </div>
                         <div className="mt-1 font-mono text-sm text-gray-900">
                             {accountId}

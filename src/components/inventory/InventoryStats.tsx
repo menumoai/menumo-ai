@@ -1,10 +1,25 @@
 // src/components/inventory/InventoryStats.tsx
+//
+// Layout rule for this page: visual weight tracks urgency, and a number is
+// printed once.
+//
+// Previously the same figures appeared three times - a header tile, a large
+// gradient hero with pills, and a four-card grid - so an account with no stock
+// got roughly 600px of chrome all saying zero, and the only useful control
+// (record a movement) started below the fold. Now:
+//
+//   nothing tracked  -> one empty state with the two real ways in, no stat grid
+//   needs attention  -> amber banner, because that is genuinely worth shouting
+//   healthy          -> one quiet line, not a hero
+
+import type { ReactNode } from "react";
 import {
     AlertTriangle,
     Boxes,
     CheckCircle2,
     DollarSign,
     PackageX,
+    PencilLine,
 } from "lucide-react";
 import type { InventorySummary } from "../../analysis/inventory";
 import { formatMoney } from "./format";
@@ -30,7 +45,9 @@ function StatCard({
                 <span className="text-sm text-gray-600">{label}</span>
                 <Icon className={`h-4 w-4 ${iconColor}`} />
             </div>
-            <div className={`text-2xl font-bold ${accent ?? "text-gray-900"}`}>
+            <div
+                className={`text-2xl font-bold tabular-nums ${accent ?? "text-gray-900"}`}
+            >
                 {value}
             </div>
             <div className="mt-1 text-xs text-gray-500">{hint}</div>
@@ -38,63 +55,101 @@ function StatCard({
     );
 }
 
-export function InventoryHero({
-    summary,
-    accountName,
+/**
+ * Shown instead of the hero and the stat grid when nothing is tracked yet.
+ * A grid of zeros teaches nothing; the two ways to get stock in do.
+ */
+export function InventoryEmptyState({
+    scanSlot,
+    onRecordMovement,
 }: {
-    summary: InventorySummary;
-    accountName: string;
+    /** The page owns the file input, so the button is passed in. */
+    scanSlot: ReactNode;
+    onRecordMovement: () => void;
 }) {
-    const needsAttention = summary.outOfStock + summary.lowStock;
-
-    const headline =
-        needsAttention === 0
-            ? summary.trackedCount === 0
-                ? "No tracked stock yet"
-                : "Stock levels look healthy"
-            : `${needsAttention} item${needsAttention === 1 ? "" : "s"} need attention`;
-
-    const body =
-        summary.trackedCount === 0
-            ? "Set a reorder point or record a purchase below to start tracking on-hand stock for your products."
-            : needsAttention === 0
-              ? `All ${summary.trackedCount} tracked items are above their reorder points. On-hand inventory is worth ${formatMoney(summary.totalValue)}.`
-              : `${summary.outOfStock} out of stock and ${summary.lowStock} running low across ${accountName}. On-hand inventory is worth ${formatMoney(summary.totalValue)}.`;
-
     return (
-        <div className="rounded-2xl bg-gradient-to-br from-teal-500 to-teal-600 p-6 text-white shadow-lg">
-            <div className="flex items-start gap-4">
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-white/20 backdrop-blur">
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-6">
+                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-teal-600 text-white">
                     <Boxes className="h-6 w-6" />
                 </div>
 
-                <div className="flex-1">
-                    <h3 className="mb-2 text-lg font-semibold">{headline}</h3>
-                    <p className="mb-4 text-teal-50">{body}</p>
+                <div className="min-w-0 flex-1">
+                    <h2
+                        className="text-xl font-semibold text-gray-900"
+                        style={{ fontFamily: "Poppins, sans-serif" }}
+                    >
+                        Start tracking your stock
+                    </h2>
+                    <p className="mt-1.5 max-w-xl text-gray-600">
+                        Two ways in. Photograph a supplier invoice and we read the
+                        line items off it, or record a movement by hand if you have
+                        no receipt to scan.
+                    </p>
 
-                    <div className="flex flex-wrap gap-2">
-                        <span className="rounded-full bg-white/20 px-3 py-1 text-sm backdrop-blur">
-                            <Boxes className="mr-1 inline h-4 w-4" />
-                            {summary.trackedCount} tracked
-                        </span>
-                        <span className="rounded-full bg-white/20 px-3 py-1 text-sm backdrop-blur">
-                            <AlertTriangle className="mr-1 inline h-4 w-4" />
-                            {summary.lowStock} low
-                        </span>
-                        <span className="rounded-full bg-white/20 px-3 py-1 text-sm backdrop-blur">
-                            <DollarSign className="mr-1 inline h-4 w-4" />
-                            {formatMoney(summary.totalValue)} on hand
-                        </span>
+                    <div className="mt-5 flex flex-wrap items-center gap-3">
+                        {scanSlot}
+                        <button
+                            type="button"
+                            onClick={onRecordMovement}
+                            className="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                        >
+                            <PencilLine className="h-4 w-4" />
+                            Record by hand
+                        </button>
                     </div>
+
+                    <p className="mt-5 border-t border-gray-100 pt-4 text-sm text-gray-500">
+                        Once stock is in, this page shows what is running low, what
+                        is about to expire, and what your inventory is worth.
+                    </p>
                 </div>
             </div>
         </div>
     );
 }
 
+/**
+ * One line of status for an account that already has stock. Loud only when
+ * something actually needs doing.
+ */
+export function InventoryStatusBar({ summary }: { summary: InventorySummary }) {
+    const needsAttention = summary.outOfStock + summary.lowStock;
+
+    if (needsAttention === 0) {
+        return (
+            <div className="flex items-center gap-3 rounded-xl border border-teal-100 bg-teal-50 px-4 py-3 text-sm text-teal-900">
+                <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-teal-600" />
+                <span>
+                    All {summary.trackedCount} tracked items are above their reorder
+                    points.
+                </span>
+            </div>
+        );
+    }
+
+    const parts = [
+        summary.outOfStock > 0 ? `${summary.outOfStock} out of stock` : null,
+        summary.lowStock > 0 ? `${summary.lowStock} running low` : null,
+    ].filter(Boolean);
+
+    return (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
+            <span>
+                <span className="font-semibold">
+                    {needsAttention} item{needsAttention === 1 ? "" : "s"} need
+                    attention
+                </span>{" "}
+                &middot; {parts.join(" and ")}. Restock below or scan a receipt.
+            </span>
+        </div>
+    );
+}
+
 export function InventoryStats({ summary }: { summary: InventorySummary }) {
     return (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard
                 label="In Stock"
                 value={summary.inStock}

@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
     createUserWithEmailAndPassword,
     signInWithEmailAndPassword,
@@ -74,8 +74,28 @@ export function AuthPage() {
     const [redirectLoading, setRedirectLoading] = useState(true);
 
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const { user, loading: authLoading } = useAuth();
     const { account, loading: accountLoading } = useAccount();
+
+    // Where to land after auth succeeds. A brand new account goes to the brief
+    // at /get-started so the five setup steps it was just shown become real;
+    // a returning login goes straight to work. `?from=get-started` keeps that
+    // context across the signup form.
+    const cameFromGetStarted = searchParams.get("from") === "get-started";
+    const planParam = searchParams.get("plan");
+    const signedUpRef = useRef(false);
+
+    const postAuthPath = useCallback(
+        (justSignedUp: boolean) => {
+            if (!justSignedUp && !cameFromGetStarted) return "/dashboard";
+            const suffix = planParam
+                ? `?plan=${encodeURIComponent(planParam)}`
+                : "";
+            return `/get-started${suffix}`;
+        },
+        [cameFromGetStarted, planParam],
+    );
 
     useEffect(() => {
         let isMounted = true;
@@ -97,7 +117,7 @@ export function AuthPage() {
 
                 setStatus("Google sign-in successful ✅");
                 setRedirectLoading(false);
-                navigate("/dashboard", { replace: true });
+                navigate(postAuthPath(false), { replace: true });
             } catch (err: any) {
                 console.error("Redirect sign-in error", err);
 
@@ -112,15 +132,15 @@ export function AuthPage() {
         return () => {
             isMounted = false;
         };
-    }, [navigate]);
+    }, [navigate, postAuthPath]);
 
     useEffect(() => {
         if (authLoading || accountLoading) return;
 
         if (user && account) {
-            navigate("/dashboard", { replace: true });
+            navigate(postAuthPath(signedUpRef.current), { replace: true });
         }
-    }, [user, account, authLoading, accountLoading, navigate]);
+    }, [user, account, authLoading, accountLoading, navigate, postAuthPath]);
 
     const handleGoogleSignIn = async () => {
         setStatus("");
@@ -143,7 +163,7 @@ export function AuthPage() {
             await ensureBusinessOwnerProfile(popupUser);
 
             setStatus("Google sign-in successful ✅");
-            navigate("/dashboard", { replace: true });
+            navigate(postAuthPath(false), { replace: true });
         } catch (err: any) {
             console.error(err);
             setStatus(err.message ?? "Google sign-in error");
@@ -164,6 +184,14 @@ export function AuthPage() {
                     setLoading(false);
                     return;
                 }
+
+                // Set before any await that can create the account. The moment
+                // createBusinessAccount resolves, AccountContext's onSnapshot
+                // fires and the redirect effect below can run - if this flag
+                // were still false there, a signup that did not carry
+                // ?from=get-started would be bounced to /dashboard and never
+                // see the checklist it was just promised.
+                signedUpRef.current = true;
 
                 const cred = await createUserWithEmailAndPassword(
                     auth,
@@ -197,11 +225,11 @@ export function AuthPage() {
                 });
 
                 setStatus("Signup successful ✅");
-                navigate("/dashboard", { replace: true });
+                navigate(postAuthPath(true), { replace: true });
             } else {
                 await signInWithEmailAndPassword(auth, email, password);
                 setStatus("Login successful ✅");
-                navigate("/dashboard", { replace: true });
+                navigate(postAuthPath(false), { replace: true });
             }
         } catch (err: any) {
             console.error(err);

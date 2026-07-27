@@ -26,6 +26,13 @@ export interface BusinessAccount {
   subscriptionStartAt?: Timestamp | null;
   subscriptionEndAt?: Timestamp | null;
 
+  /**
+   * Set once the setup checklist on /get-started reaches 5 of 5. Only used to
+   * stop the post-signup redirect and demote the sidebar item; the individual
+   * step ticks are always derived from real data, never stored.
+   */
+  onboardingCompletedAt?: Timestamp | null;
+
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

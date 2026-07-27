@@ -24,6 +24,11 @@ export async function getUserProfile(uid: string): Promise<AppUserProfile | null
     };
 }
 
+/**
+ * Note there is no `isInternal` parameter and there must never be one. Staff
+ * access is granted out-of-band so that no in-app flow, present or future, can
+ * be tricked into elevating a user.
+ */
 export async function upsertUserProfile(params: {
     uid: string;
     kind: AppUserKind;

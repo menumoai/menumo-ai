@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 
 import { useAccount } from "../account/AccountContext";
+import { accountLabel } from "../account/accountLabel";
 import type { Product } from "../models/product";
 import { useAnalyticsSnapshot } from "../hooks/useAnalyticsSnapshot";
 import { createProduct, updateProduct } from "../services/product";
@@ -298,7 +299,7 @@ export function MenuPage() {
                         <p className="text-gray-600">
                             Manage products for{" "}
                             <span className="font-medium text-gray-900">
-                                {account?.name ?? accountId}
+                                {accountLabel(account)}
                             </span>
                         </p>
                     </div>

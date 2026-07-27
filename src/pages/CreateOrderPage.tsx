@@ -1,10 +1,11 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { listProducts } from "../services/product";
 import { createOrderWithLineItems } from "../services/order";
 import type { Product } from "../models/product";
 import { useAccount } from "../account/AccountContext";
+import { accountLabel } from "../account/accountLabel";
 
 import { PageHeader } from "../layout/PageHeader";
 import { CreateOrderTable } from "../components/orders/CreateOrderTable";
@@ -24,7 +25,7 @@ export function CreateOrderPage() {
     const [loading, setLoading] = useState(false);
 
     const navigate = useNavigate();
-    const { accountId, loading: accountLoading } = useAccount();
+    const { accountId, account, loading: accountLoading } = useAccount();
 
     useEffect(() => {
         if (!accountId) return;
@@ -52,6 +53,14 @@ export function CreateOrderPage() {
         void load();
     }, [accountId]);
 
+    // Derived from the same builder the submit handler uses, so the button's
+    // enabled state and what actually gets saved can never disagree.
+    const orderItems = useMemo(
+        () => buildOrderItems(products, quantities, selectedOptions),
+        [products, quantities, selectedOptions],
+    );
+    const hasQuantity = orderItems.length > 0;
+
     const handleQuantityChange = (productId: string, value: string) => {
         setQuantities((prev) => ({ ...prev, [productId]: value }));
     };
@@ -77,17 +86,17 @@ export function CreateOrderPage() {
         setLoading(true);
 
         try {
-            const items = buildOrderItems(products, quantities, selectedOptions);
-
-            if (items.length === 0) {
-                setStatus("Select at least one product with quantity > 0");
+            // The button is disabled without items, so this only trips if the
+            // form is submitted some other way (Enter key, autofill, tooling).
+            if (orderItems.length === 0) {
+                setStatus("Enter a quantity for at least one item.");
                 setLoading(false);
                 return;
             }
 
             const orderId = await createOrderWithLineItems({
                 accountId,
-                items,
+                items: orderItems,
                 channel: "in_person",
             });
 
@@ -129,7 +138,7 @@ export function CreateOrderPage() {
                 title="Create Order"
                 subtitle={
                     <>
-                        For account <code className="font-mono">{accountId}</code>
+                        For {accountLabel(account)}
                     </>
                 }
             />
@@ -153,13 +162,30 @@ export function CreateOrderPage() {
                             onToggleOption={handleToggleOption}
                         />
 
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                            {loading ? "Creating..." : "Create Order"}
-                        </button>
+                        <div className="flex flex-wrap items-center gap-3">
+                            <button
+                                type="submit"
+                                disabled={loading || !hasQuantity}
+                                className="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-indigo-600"
+                            >
+                                {loading ? "Creating..." : "Create Order"}
+                            </button>
+
+                            {/* A disabled button with no stated reason reads as
+                                a broken page, so always say what is missing. */}
+                            {!hasQuantity && !loading && (
+                                <p className="text-sm text-slate-500 dark:text-slate-400">
+                                    Enter a quantity for at least one item.
+                                </p>
+                            )}
+                            {hasQuantity && !loading && (
+                                <p className="text-sm text-slate-500 dark:text-slate-400">
+                                    {orderItems.length}{" "}
+                                    {orderItems.length === 1 ? "item" : "items"} ·{" "}
+                                    {orderItems.reduce((n, i) => n + i.quantity, 0)} total
+                                </p>
+                            )}
+                        </div>
                     </form>
                 )}
 

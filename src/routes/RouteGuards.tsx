@@ -48,3 +48,43 @@ export function BusinessRoute({ children }: { children: ReactNode }) {
         </RequireAuth>
     );
 }
+
+/**
+ * Menumo staff only, for internal tooling like the Dev Console.
+ *
+ * This is a convenience guard, not a security boundary. The Firebase SDK ships
+ * in the browser, so anyone determined can call the same service functions from
+ * devtools regardless of what this component renders. The only real enforcement
+ * is a Firestore rule restricting the writes themselves. Treat this as the
+ * thing that stops a customer wandering in, not the thing that stops an
+ * attacker.
+ *
+ * Renders nothing on failure rather than redirecting, so the existence of the
+ * route is not confirmed to a curious user.
+ */
+export function RequireInternal({ children }: { children: ReactNode }) {
+    const { isInternal, loading, profileLoading } = useAuth();
+
+    if (loading || profileLoading) {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-700">
+                <p className="text-sm text-slate-500">Checking access…</p>
+            </div>
+        );
+    }
+
+    if (!isInternal) {
+        return <Navigate to="/dashboard" replace />;
+    }
+
+    return <>{children}</>;
+}
+
+/** Signed in, has an account, and is Menumo staff. */
+export function InternalRoute({ children }: { children: ReactNode }) {
+    return (
+        <BusinessRoute>
+            <RequireInternal>{children}</RequireInternal>
+        </BusinessRoute>
+    );
+}

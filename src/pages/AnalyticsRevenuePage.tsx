@@ -11,6 +11,7 @@ import WeeklyRevenueTrendCard from "../components/dashboard/WeeklyRevenueTrendCa
 import RevenueVsExpensesPie from "../components/dashboard/RevenueVsExpensesPie";
 import { RecentOrdersTable } from "../components/dashboard/RecentOrdersTable";
 import { useAccount } from "../account/AccountContext";
+import { accountLabel } from "../account/accountLabel";
 import { useAnalyticsSnapshot } from "../hooks/useAnalyticsSnapshot";
 
 const RANGE_OPTIONS = [7, 30, 90] as const;
@@ -99,7 +100,7 @@ export function AnalyticsRevenuePage() {
                         <p className="text-gray-600">
                             Live order, product, and expense trends for{" "}
                             <span className="font-medium text-gray-900">
-                                {account?.name ?? accountId}
+                                {accountLabel(account)}
                             </span>
                         </p>
                     </div>
