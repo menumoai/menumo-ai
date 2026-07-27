@@ -3,6 +3,7 @@ import { DollarSign, Package, Receipt, TrendingUp } from "lucide-react";
 import { Link } from "react-router-dom";
 import { computeRevenueAnalytics } from "../analysis/revenue";
 import { useAccount } from "../account/AccountContext";
+import { accountLabel } from "../account/accountLabel";
 import ExpensesByCategoryCard from "../components/dashboard/ExpensesByCategoryCard";
 import ExpensesSummaryCard from "../components/dashboard/ExpenseSummaryCard";
 import RecentExpensesTable from "../components/dashboard/RecentExpensesTable";
@@ -133,7 +134,7 @@ export function DashboardPage() {
                     <p className="text-gray-600">
                         Live business snapshot for{" "}
                         <span className="font-medium text-gray-900">
-                            {account?.name ?? accountId}
+                            {accountLabel(account)}
                         </span>
                     </p>
                 </div>

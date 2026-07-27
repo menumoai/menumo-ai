@@ -1,6 +1,7 @@
 import { Routes, Route } from "react-router-dom";
 import { LandingPage } from "../pages/LandingPage";
 import { AuthPage } from "../pages/AuthPage";
+import { GetStartedPage } from "../pages/GetStartedPage";
 import { MenuPage } from "../pages/MenuPage";
 import InventoryPage from "../pages/InventoryPage";
 import { OrdersPage } from "../pages/OrdersPage";
@@ -12,13 +13,17 @@ import { OrderDetailPage } from "../pages/OrderDetailPage";
 import { BrowseTrucksPage } from "../pages/BrowseTrucksPage";
 import ExpensesPage from "../pages/ExpensesPage";
 import { DevConsole } from "../pages/DevConsole";
-import { BusinessRoute } from "./RouteGuards";
+import { BusinessRoute, InternalRoute } from "./RouteGuards";
 
 export function AppRoutes() {
     return (
         <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/auth" element={<AuthPage />} />
+            {/* Public on purpose: this is the brief a prospect reads before
+                signing up. It renders a personalized checklist once there is
+                an account, but it never requires one. */}
+            <Route path="/get-started" element={<GetStartedPage />} />
             <Route
                 path="/locations"
                 element={
@@ -102,9 +107,11 @@ export function AppRoutes() {
             <Route
                 path="/dev"
                 element={
-                    <BusinessRoute>
+                    /* Staff only. The console seeds and overwrites data, so it
+                       must never be reachable by a customer. */
+                    <InternalRoute>
                         <DevConsole />
-                    </BusinessRoute>
+                    </InternalRoute>
                 }
             />
 

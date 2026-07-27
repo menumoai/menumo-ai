@@ -43,11 +43,15 @@ export function LandingPage() {
                             Log in
                         </Link>
 
+                        {/* The button most people click first explains before it
+                            asks for an email. Short label under `sm` so the nav
+                            does not crowd on small screens. */}
                         <Link
-                            to="/auth"
+                            to="/get-started"
                             className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#5B9A8B] to-[#4A7C70] px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:opacity-95"
                         >
-                            Get started
+                            <span className="sm:hidden">Get started</span>
+                            <span className="hidden sm:inline">Let&rsquo;s get started</span>
                         </Link>
                     </div>
                 </div>
@@ -75,8 +79,10 @@ export function LandingPage() {
                         </p>
 
                         <div className="flex flex-col gap-4 sm:flex-row">
+                            {/* Promises an explanation, so it must deliver one.
+                                Previously pointed at the signup form. */}
                             <Link
-                                to="/auth"
+                                to="/get-started"
                                 className="inline-flex items-center justify-center rounded-full border-2 border-gray-300 px-8 py-3 text-lg text-gray-700 transition hover:bg-gray-50"
                             >
                                 See how it works
@@ -256,10 +262,10 @@ export function LandingPage() {
                         </ul>
 
                         <Link
-                            to="/auth"
+                            to="/get-started"
                             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-[#D94C3D] to-[#E67E50] px-8 py-3 text-lg text-white shadow-lg transition hover:opacity-95"
                         >
-                            Get started
+                            Let&rsquo;s get started
                         </Link>
                     </div>
 
@@ -300,10 +306,10 @@ export function LandingPage() {
                     </p>
 
                     <Link
-                        to="/auth"
+                        to="/get-started"
                         className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-[#D94C3D] to-[#E67E50] px-8 py-3 text-lg text-white shadow-lg transition hover:opacity-95"
                     >
-                        Start Free Trial
+                        Let&rsquo;s get started
                         <Sparkles className="ml-2 h-5 w-5" />
                     </Link>
 
@@ -334,7 +340,7 @@ export function LandingPage() {
                             <h4 className="mb-4 font-semibold text-white">Product</h4>
                             <ul className="space-y-2 text-sm">
                                 <li><a href="#features" className="hover:text-white">Features</a></li>
-                                <li><Link to="/auth" className="hover:text-white">Get started</Link></li>
+                                <li><Link to="/get-started" className="hover:text-white">Get started</Link></li>
                             </ul>
                         </div>
 

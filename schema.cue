@@ -60,6 +60,10 @@ package servedup
     subscriptionStartAt?: #Timestamp
     subscriptionEndAt?:   #Timestamp
 
+    // Set when the /get-started setup checklist reaches 5 of 5. Stops the
+    // post-signup redirect; the step ticks themselves are always derived.
+    onboardingCompletedAt?: #Timestamp
+
     createdAt:        #Timestamp
     updatedAt:        #Timestamp
 }

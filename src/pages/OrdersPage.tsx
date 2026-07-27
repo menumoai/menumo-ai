@@ -17,6 +17,7 @@ import type { Order } from "../models/order";
 import type { Product } from "../models/product";
 import type { SelectedOption } from "../models/order";
 import { useAccount } from "../account/AccountContext";
+import { accountLabel } from "../account/accountLabel";
 
 type OrderStatus = Order["status"];
 
@@ -39,7 +40,7 @@ function formatMoney(value: number) {
 }
 
 export function OrdersPage() {
-    const { accountId, loading: accountLoading } = useAccount();
+    const { accountId, account, loading: accountLoading } = useAccount();
 
     const [orders, setOrders] = useState<Order[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
@@ -302,7 +303,7 @@ export function OrdersPage() {
 
                         <p className="text-gray-600">
                             Track live orders and create staff orders for{" "}
-                            <span className="font-medium text-gray-900">{accountId}</span>
+                            <span className="font-medium text-gray-900">{accountLabel(account)}</span>
                         </p>
                     </div>
 

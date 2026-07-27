@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { useAccount } from "../account/AccountContext";
+import { accountLabel } from "../account/accountLabel";
 import { listPublicTruckLocations } from "../services/location";
 import type { Location } from "../models/location";
 
@@ -189,7 +190,7 @@ export function BrowseTrucksPage() {
                         <p className="text-gray-600">
                             Track and review truck locations for{" "}
                             <span className="font-medium text-gray-900">
-                                {account?.name ?? accountId}
+                                {accountLabel(account)}
                             </span>
                         </p>
                     </div>

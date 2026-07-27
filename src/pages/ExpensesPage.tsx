@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { useAccount } from "../account/AccountContext";
+import { accountLabel } from "../account/accountLabel";
 import { useAuth } from "../auth/AuthContext";
 import { useExpenses } from "../hooks/useExpense";
 import {
@@ -172,7 +173,7 @@ export default function ExpensesPage() {
                         <p className="text-gray-600">
                             Track spend for{" "}
                             <span className="font-medium text-gray-900">
-                                {account?.name ?? accountId ?? "your account"}
+                                {accountLabel(account)}
                             </span>
                         </p>
                     </div>

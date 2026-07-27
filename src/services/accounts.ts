@@ -47,6 +47,25 @@ export async function createBusinessAccount(params: {
     }, { merge: true });
 }
 
+/**
+ * Records that the setup checklist reached 5 of 5. This is the only piece of
+ * onboarding state that is ever written: it stops the post-signup redirect and
+ * lets the sidebar stop querying progress. The individual step ticks stay
+ * derived from real collections so they can never go stale.
+ */
+export async function markOnboardingComplete(accountId: string): Promise<void> {
+    const ref = doc(accountsCol(), accountId);
+
+    await setDoc(
+        ref,
+        {
+            onboardingCompletedAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+    );
+}
+
 // Fetch a single account by ID
 export async function getBusinessAccount(id: string): Promise<BusinessAccount | null> {
     const ref = doc(accountsCol(), id);
