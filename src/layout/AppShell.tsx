@@ -18,17 +18,30 @@ const AUTH_AWARE_PATHS = ["/get-started"];
 export function AppShell({ children }: { children: ReactNode }) {
     const location = useLocation();
     const navigate = useNavigate();
-    const { logout, user } = useAuth();
-    const { account } = useAccount();
+    const { logout, user, loading: authLoading } = useAuth();
+    const { account, loading: accountLoading } = useAccount();
 
     const isPublicPage = PUBLIC_PATHS.includes(location.pathname);
     const isAuthAware = AUTH_AWARE_PATHS.includes(location.pathname);
     const signedIn = Boolean(user && account);
 
+    // On a hard refresh of an auth-aware route, auth and the account resolve
+    // asynchronously. Deciding the shell before they land renders the landing
+    // nav and then swaps the whole page to the dashboard chrome a moment later.
+    // Only a signed-in user can be waiting on an account, so a genuine visitor
+    // still gets the public page immediately.
+    const shellUndecided = isAuthAware && (authLoading || (Boolean(user) && accountLoading));
+
     const handleNavigateBack = async () => {
         await logout();
         navigate("/auth");
     };
+
+    if (shellUndecided) {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-[#FBF8F3]" />
+        );
+    }
 
     if (isPublicPage || (isAuthAware && !signedIn)) {
         return <>{children}</>;

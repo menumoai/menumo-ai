@@ -185,6 +185,14 @@ export function AuthPage() {
                     return;
                 }
 
+                // Set before any await that can create the account. The moment
+                // createBusinessAccount resolves, AccountContext's onSnapshot
+                // fires and the redirect effect below can run - if this flag
+                // were still false there, a signup that did not carry
+                // ?from=get-started would be bounced to /dashboard and never
+                // see the checklist it was just promised.
+                signedUpRef.current = true;
+
                 const cred = await createUserWithEmailAndPassword(
                     auth,
                     email,
@@ -216,7 +224,6 @@ export function AuthPage() {
                     primaryAccountId: accountId,
                 });
 
-                signedUpRef.current = true;
                 setStatus("Signup successful ✅");
                 navigate(postAuthPath(true), { replace: true });
             } else {

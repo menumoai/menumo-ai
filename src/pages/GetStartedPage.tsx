@@ -72,13 +72,9 @@ export function GetStartedPage() {
     );
     const firstName = greetingFirstName(accountUser, user?.displayName);
 
+    // Only reachable signed out: the signed-in cards render no buttons, because
+    // switching plans needs a billing layer that does not exist yet.
     const startTrial = (planId: PlanId) => {
-        if (signedIn) {
-            // Plan switching lands with the entitlement layer. Until then the
-            // button should not pretend to do something it cannot.
-            plansRef.current?.scrollIntoView({ behavior: "smooth" });
-            return;
-        }
         navigate(`/auth?plan=${planId}&from=get-started`);
     };
 
@@ -216,6 +212,12 @@ export function GetStartedPage() {
                     />
                     <PlanCards
                         signedIn={signedIn}
+                        /* Accurate only because every trial runs at one plan.
+                           It cannot be read off the account yet:
+                           BusinessAccount.subscriptionTier is still
+                           "mvp"|"growth"|"pro"|"custom", which does not map to
+                           PlanId. Derive this from the account as part of the
+                           tier rename, or it will quietly show the wrong plan. */
                         currentPlan={signedIn ? TRIAL_PLAN : null}
                         onChoose={startTrial}
                     />

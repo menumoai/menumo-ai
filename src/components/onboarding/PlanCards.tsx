@@ -77,22 +77,31 @@ export function PlanCards({ currentPlan, onChoose, signedIn = false }: Props) {
                             ))}
                         </ul>
 
-                        <button
-                            type="button"
-                            onClick={() => onChoose(plan.id)}
-                            className={[
-                                "mt-5 w-full rounded-full px-4 py-2.5 text-sm font-semibold transition",
-                                highlighted
-                                    ? "bg-gradient-to-r from-[#D94C3D] to-[#E67E50] text-white hover:opacity-95"
-                                    : "border border-gray-300 text-gray-700 hover:bg-gray-50",
-                            ].join(" ")}
-                        >
-                            {signedIn
-                                ? plan.id === currentPlan
-                                    ? `Keep ${plan.name}`
-                                    : `Switch to ${plan.name}`
-                                : "Start free trial"}
-                        </button>
+                        {/* Signed in, there is nothing to click yet: switching
+                            plans needs the billing layer, which does not exist.
+                            A "Switch to Business" button that silently does
+                            nothing is worse than no button, so the card just
+                            states where the account stands. */}
+                        {signedIn ? (
+                            <p className="mt-5 border-t border-gray-100 pt-4 text-sm text-gray-500">
+                                {plan.id === currentPlan
+                                    ? "Included in your trial."
+                                    : `Available when billing opens.`}
+                            </p>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => onChoose(plan.id)}
+                                className={[
+                                    "mt-5 w-full rounded-full px-4 py-2.5 text-sm font-semibold transition",
+                                    highlighted
+                                        ? "bg-gradient-to-r from-[#D94C3D] to-[#E67E50] text-white hover:opacity-95"
+                                        : "border border-gray-300 text-gray-700 hover:bg-gray-50",
+                                ].join(" ")}
+                            >
+                                Start free trial
+                            </button>
+                        )}
                     </div>
                 );
             })}

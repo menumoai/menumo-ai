@@ -60,7 +60,12 @@ export default function InventoryPage() {
     const batchRisk = useMemo(() => summarizeBatchRisk(batches), [batches]);
 
     // Drives the whole page shape: empty state, or status bar plus stat grid.
+    //
+    // `loading` matters here. Products start as [] while the first fetch is in
+    // flight, so keying purely off trackedCount would flash "Start tracking
+    // your stock" at an account that has plenty, on every single visit.
     const hasStock = summary.trackedCount > 0;
+    const showEmptyState = !loading && !hasStock;
 
     const formProducts = useMemo(
         () =>
@@ -208,13 +213,15 @@ export default function InventoryPage() {
                 ) : null}
 
                 {/* Nothing tracked yet: one empty state carrying the two real
-                    ways in, instead of a hero plus a grid of zeros. */}
+                    ways in, instead of a hero plus a grid of zeros. While the
+                    first fetch is in flight we show neither, so an account with
+                    stock never flashes the empty state on the way in. */}
                 {hasStock ? (
                     <>
                         <InventoryStatusBar summary={summary} />
                         <InventoryStats summary={summary} />
                     </>
-                ) : (
+                ) : showEmptyState ? (
                     <InventoryEmptyState
                         onRecordMovement={scrollToForm}
                         scanSlot={
@@ -224,6 +231,11 @@ export default function InventoryPage() {
                                 disabled={!accountId}
                             />
                         }
+                    />
+                ) : (
+                    <div
+                        className="h-28 animate-pulse rounded-2xl border border-gray-100 bg-white"
+                        aria-hidden="true"
                     />
                 )}
 
