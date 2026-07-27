@@ -32,6 +32,7 @@ import {
     Rocket,
 } from "lucide-react";
 import { useOnboardingProgress } from "../hooks/useOnboardingProgress";
+import { ENFORCE_INTERNAL_ONLY } from "../config/access";
 
 interface DashboardLayoutProps {
     children: React.ReactNode;
@@ -192,7 +193,9 @@ export function DashboardLayout({
         { path: "/locations", label: "Locations", icon: MapPin },
         // Internal tooling. Hidden from customers entirely rather than shown
         // and then blocked - a menu item you cannot use is just confusing.
-        ...(isInternal
+        // Temporarily visible to everyone while isInternal cannot be granted;
+        // see src/config/access.ts.
+        ...(!ENFORCE_INTERNAL_ONLY || isInternal
             ? [{ path: "/dev", label: "Dev Console", icon: BarChart3 }]
             : []),
     ];

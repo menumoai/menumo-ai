@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useAccount } from "../account/AccountContext";
+import { ENFORCE_INTERNAL_ONLY } from "../config/access";
 
 export function RequireAuth({ children }: { children: ReactNode }) {
     const { user, loading } = useAuth();
@@ -64,6 +65,12 @@ export function BusinessRoute({ children }: { children: ReactNode }) {
  */
 export function RequireInternal({ children }: { children: ReactNode }) {
     const { isInternal, loading, profileLoading } = useAuth();
+
+    // Temporarily open while nobody can be granted isInternal. See the note in
+    // src/config/access.ts - this is the only line that needs changing back.
+    if (!ENFORCE_INTERNAL_ONLY) {
+        return <>{children}</>;
+    }
 
     if (loading || profileLoading) {
         return (
