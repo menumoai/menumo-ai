@@ -14,6 +14,7 @@ import { accountLabel } from "../account/accountLabel";
 import type { Product } from "../models/product";
 import { useAnalyticsSnapshot } from "../hooks/useAnalyticsSnapshot";
 import { createProduct, updateProduct } from "../services/product";
+import { validateProductForm } from "../components/menu/productFormValidation";
 import { useMenuProducts } from "../hooks/useMenuProducts";
 import { computeMenuPerformanceMatrix } from "../analysis/menu";
 import { MenuPerformanceMatrix } from "../components/analytics/MenuPerformanceMatrix";
@@ -163,16 +164,17 @@ export function MenuPage() {
     };
 
     const handleSaveProduct = async (values: AddProductFormValues) => {
-        if (!values.name.trim() || !values.price.trim()) {
-            setStatus("Name and price are required");
+        // Same rules the form shows inline, so the two cannot disagree. The
+        // form blocks submit on these already; this is the backstop for any
+        // other path into the handler.
+        const fieldErrors = validateProductForm(values);
+        const firstError = Object.values(fieldErrors)[0];
+        if (firstError) {
+            setStatus(firstError);
             return;
         }
 
         const priceNumber = parseFloat(values.price);
-        if (Number.isNaN(priceNumber)) {
-            setStatus("Price must be a number");
-            return;
-        }
 
         const costNumber =
             values.cost.trim() === "" ? undefined : parseFloat(values.cost.trim());
