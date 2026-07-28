@@ -2,6 +2,7 @@ import { Routes, Route } from "react-router-dom";
 import { LandingPage } from "../pages/LandingPage";
 import { AuthPage } from "../pages/AuthPage";
 import { GetStartedPage } from "../pages/GetStartedPage";
+import { NotFoundPage } from "../pages/NotFoundPage";
 import { MenuPage } from "../pages/MenuPage";
 import InventoryPage from "../pages/InventoryPage";
 import { OrdersPage } from "../pages/OrdersPage";
@@ -115,7 +116,8 @@ export function AppRoutes() {
                 }
             />
 
-            <Route path="*" element={<LandingPage />} />
+            {/* Anything unknown is a 404, not the sales pitch. */}
+            <Route path="*" element={<NotFoundPage />} />
         </Routes>
     );
 }

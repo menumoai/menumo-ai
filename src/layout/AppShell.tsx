@@ -8,13 +8,6 @@ import { DashboardLayout } from "./DashboardLayout";
 
 const PUBLIC_PATHS = ["/", "/auth"];
 
-/**
- * Routes that a visitor can open without an account but that belong inside the
- * app once there is one. /get-started is the brief: landing chrome for a
- * prospect, dashboard chrome for a customer, same route either way.
- */
-const AUTH_AWARE_PATHS = ["/get-started"];
-
 export function AppShell({ children }: { children: ReactNode }) {
     const location = useLocation();
     const navigate = useNavigate();
@@ -22,15 +15,23 @@ export function AppShell({ children }: { children: ReactNode }) {
     const { account, loading: accountLoading } = useAccount();
 
     const isPublicPage = PUBLIC_PATHS.includes(location.pathname);
-    const isAuthAware = AUTH_AWARE_PATHS.includes(location.pathname);
     const signedIn = Boolean(user && account);
 
-    // On a hard refresh of an auth-aware route, auth and the account resolve
-    // asynchronously. Deciding the shell before they land renders the landing
-    // nav and then swaps the whole page to the dashboard chrome a moment later.
-    // Only a signed-in user can be waiting on an account, so a genuine visitor
-    // still gets the public page immediately.
-    const shellUndecided = isAuthAware && (authLoading || (Boolean(user) && accountLoading));
+    // Chrome for every non-public path is decided by auth state, not by a
+    // path whitelist. This is what lets one route serve two audiences
+    // (/get-started renders as a public brief or an in-app page), and it keeps
+    // the 404 honest: previously an unknown URL was always wrapped in
+    // dashboard chrome, even for signed-out visitors, because only "/" and
+    // "/auth" ever rendered bare. Route guards still handle their own
+    // redirects; this only chooses the frame around them.
+    //
+    // On a hard refresh, auth and the account resolve asynchronously. Deciding
+    // the shell before they land renders one chrome and then swaps the whole
+    // page to the other a moment later, so hold while genuinely unknown. Only
+    // a signed-in user can be waiting on an account, so a visitor still gets
+    // the public page immediately.
+    const shellUndecided =
+        !isPublicPage && (authLoading || (Boolean(user) && accountLoading));
 
     const handleNavigateBack = async () => {
         await logout();
@@ -43,7 +44,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         );
     }
 
-    if (isPublicPage || (isAuthAware && !signedIn)) {
+    if (isPublicPage || !signedIn) {
         return <>{children}</>;
     }
 
