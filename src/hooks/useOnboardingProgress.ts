@@ -129,10 +129,14 @@ export function buildSteps(counts: Counts): OnboardingStep[] {
         },
         {
             id: "ai",
-            title: "Ask the assistant a question",
-            blurb: 'Try "which item makes me the least money?" and see it answer from your data.',
-            doneBlurb: "You've used the assistant",
-            help: "The assistant reads your own numbers rather than giving generic advice, so it can point at the specific dish or day losing you money. It sits in the bottom-right of every screen. It is last on this list because it needs the data from the steps above to say anything useful.",
+            // The companion is a suggestions panel, not a chat box. The old
+            // copy said "ask it a question", which described a feature that
+            // does not exist - and nothing ever marked the step done, so the
+            // checklist could never reach 5 of 5.
+            title: "Open your AI companion",
+            blurb: "It reads your numbers and suggests your next money move. Bottom-right corner, any screen.",
+            doneBlurb: "You've opened the companion",
+            help: "The companion reads your own sales and costs rather than giving generic advice, so it can point at the specific dish or day losing you money. Open it from the button in the bottom-right of any screen. It is last on this list because it needs the data from the steps above to say anything useful.",
             estimate: "~30 sec",
             route: "/dashboard",
             done: counts.askedAi,

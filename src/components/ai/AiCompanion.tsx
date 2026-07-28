@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { useAccount } from "../../account/AccountContext";
+import { markAiCompanionUsed } from "../../hooks/useOnboardingProgress";
 import { useAnalyticsSnapshot } from "../../hooks/useAnalyticsSnapshot";
 import { computeRevenueAnalytics } from "../../analysis/revenue";
 import {
@@ -204,6 +205,11 @@ export function AiCompanion() {
                     type="button"
                     onClick={() => {
                         setOpen(true);
+                        // Ticks the "Open your AI companion" onboarding step.
+                        // Nothing called this before, so the checklist could
+                        // never reach 5 of 5 and the sidebar counter never
+                        // retired.
+                        if (accountId) markAiCompanionUsed(accountId);
                     }}
                     className="fixed bottom-6 right-6 z-50 inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-teal-600 to-cyan-600 px-4 py-3 text-sm font-semibold text-white shadow-xl transition hover:scale-[1.02] hover:shadow-2xl"
                 >

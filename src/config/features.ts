@@ -187,7 +187,7 @@ export const FEATURES: readonly Feature[] = [
     {
         id: "ai-companion",
         name: "AI companion",
-        blurb: "Ask about your own numbers in plain language from any screen. It only answers from your real data.",
+        blurb: "Suggestions grounded in your own sales and costs, on every screen. It reads your real numbers, never generic tips.",
         status: "live",
         minPlan: null,
         area: "platform",
