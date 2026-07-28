@@ -42,10 +42,12 @@ async function ensureBusinessOwnerProfile(user: {
 
     const accountId = uid;
 
+    // Never write demo placeholders onto a real customer's account. The old
+    // fallback named the business "Demo Taco Truck" and stamped every Google
+    // signup with legalName "Demo Taco Truck LLC" unconditionally.
     await createBusinessAccount({
         id: accountId,
-        name: user.displayName ? `${user.displayName}'s Truck` : "Demo Taco Truck",
-        legalName: "Demo Taco Truck LLC",
+        name: user.displayName ? `${user.displayName}'s Truck` : "Your Truck",
         email: user.email ?? undefined,
     });
 
@@ -206,7 +208,6 @@ export function AuthPage() {
                 await createBusinessAccount({
                     id: accountId,
                     name: `${firstName}'s Truck`,
-                    legalName: `${firstName} Demo LLC`,
                     email,
                 });
 
