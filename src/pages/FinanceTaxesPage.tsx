@@ -11,11 +11,14 @@ import {
     TrendingUp,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
+import { Lock } from "lucide-react";
 import { useAccount } from "../account/AccountContext";
 import { useAnalyticsSnapshot } from "../hooks/useAnalyticsSnapshot";
 import { saveTaxProfile } from "../services/accounts";
 import { TaxProfileDialog } from "../components/finance/TaxProfileDialog";
 import { Contractor1099Panel } from "../components/finance/Contractor1099Panel";
+import { UpgradePrompt } from "../components/finance/UpgradePrompt";
+import { hasCapability } from "../account/entitlements";
 import {
     estimateTax,
     isTaxProfileConfigured,
@@ -117,7 +120,13 @@ export default function FinanceTaxesPage() {
     const expenses: FinanceExpense[] = overview.expenses;
     const monthlyTrend: MonthlyTrend[] = overview.monthlyTrend;
 
-    const data = periods[period];
+    // "Advanced P&L" is sold on the Business plan. Basic P&L - the current
+    // period, its KPIs and the expense breakdown - stays on every plan; what is
+    // gated is the comparative reporting. Pinning the period here means a stale
+    // selection cannot leak a quarter view after a downgrade.
+    const canUseAdvancedPnl = hasCapability(account, "advancedPnl");
+    const effectivePeriod = canUseAdvancedPnl ? period : "month";
+    const data = periods[effectivePeriod];
 
     // Real estimate: SE tax, federal brackets and QBI, stacked on any other
     // household income. Falls back to an unconfigured state that prompts rather
@@ -231,29 +240,57 @@ export default function FinanceTaxesPage() {
 
                     <div className="flex flex-wrap items-center gap-3">
                         <div className="flex rounded-lg bg-gray-100 p-1">
-                            {(["month", "quarter", "year"] as FinancePeriod[]).map((option) => (
-                                <button
-                                    key={option}
-                                    type="button"
-                                    onClick={() => setPeriod(option)}
-                                    className={`rounded-md px-3 py-1 text-sm font-medium capitalize transition-colors ${
-                                        period === option
-                                            ? "bg-white text-gray-900 shadow"
-                                            : "text-gray-500 hover:text-gray-700"
-                                    }`}
-                                >
-                                    {option}
-                                </button>
-                            ))}
+                            {(["month", "quarter", "year"] as FinancePeriod[]).map((option) => {
+                                // Quarter and year are the comparative reporting
+                                // sold as Advanced P&L. Rendered locked rather
+                                // than hidden, so the plan boundary is legible.
+                                const locked = option !== "month" && !canUseAdvancedPnl;
+
+                                return (
+                                    <button
+                                        key={option}
+                                        type="button"
+                                        disabled={locked}
+                                        title={
+                                            locked
+                                                ? "Quarter and year comparisons are part of Advanced P&L"
+                                                : undefined
+                                        }
+                                        onClick={() => !locked && setPeriod(option)}
+                                        className={`flex items-center gap-1 rounded-md px-3 py-1 text-sm font-medium capitalize transition-colors ${
+                                            locked
+                                                ? "cursor-not-allowed text-gray-400"
+                                                : effectivePeriod === option
+                                                  ? "bg-white text-gray-900 shadow"
+                                                  : "text-gray-500 hover:text-gray-700"
+                                        }`}
+                                    >
+                                        {option}
+                                        {locked && <Lock className="h-3 w-3" />}
+                                    </button>
+                                );
+                            })}
                         </div>
 
-                        <Button
-                            onClick={handleExport}
-                            className="rounded-xl bg-gradient-to-r from-[#D94C3D] to-[#E67E50] text-white shadow-lg hover:from-[#C43D2E] hover:to-[#D96D3F]"
-                        >
-                            <Download className="mr-2 h-4 w-4" />
-                            Export All Reports
-                        </Button>
+                        {canUseAdvancedPnl ? (
+                            <Button
+                                onClick={handleExport}
+                                className="rounded-xl bg-gradient-to-r from-[#D94C3D] to-[#E67E50] text-white shadow-lg hover:from-[#C43D2E] hover:to-[#D96D3F]"
+                            >
+                                <Download className="mr-2 h-4 w-4" />
+                                Export All Reports
+                            </Button>
+                        ) : (
+                            <Button
+                                variant="secondary"
+                                disabled
+                                title="CSV export is part of Advanced P&L"
+                                className="rounded-xl"
+                            >
+                                <Lock className="mr-2 h-4 w-4" />
+                                Export All Reports
+                            </Button>
+                        )}
                     </div>
                 </div>
 
@@ -467,6 +504,13 @@ export default function FinanceTaxesPage() {
                         </div>
                     </div>
 
+                    {!canUseAdvancedPnl ? (
+                        <UpgradePrompt capability="advancedPnl" title="Advanced P&L">
+                            Compare quarters and years, see six months of revenue
+                            against profit, and export your P&amp;L as a CSV for your
+                            accountant. This month&rsquo;s figures stay on every plan.
+                        </UpgradePrompt>
+                    ) : (
                     <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
                         <h3
                             className="mb-4 text-xl font-bold text-gray-900"
@@ -516,6 +560,7 @@ export default function FinanceTaxesPage() {
                             </span>
                         </div>
                     </div>
+                    )}
                 </div>
 
                 <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
