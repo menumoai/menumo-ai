@@ -76,3 +76,39 @@ export async function getBusinessAccount(id: string): Promise<BusinessAccount | 
     return snap.data() as BusinessAccount;
 }
 
+
+/**
+ * Records the statutory figures the owner has confirmed or corrected, stamping
+ * who-checked-when via `verifiedAt`. Kept separate from `saveTaxProfile` because
+ * confirming the tax tables and describing your household are different acts by
+ * potentially different people - the accountant does one, the owner the other.
+ */
+export async function saveTaxFigures(
+    accountId: string,
+    taxFigures: BusinessAccount["taxFigures"],
+): Promise<void> {
+    const ref = doc(accountsCol(), accountId);
+    await setDoc(
+        ref,
+        {
+            taxFigures: taxFigures
+                ? { ...taxFigures, verifiedAt: serverTimestamp() }
+                : null,
+            updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+    );
+}
+
+/** Saves the owner's tax inputs for the /finance set-aside estimate. */
+export async function saveTaxProfile(
+    accountId: string,
+    taxProfile: BusinessAccount["taxProfile"],
+): Promise<void> {
+    const ref = doc(accountsCol(), accountId);
+    await setDoc(
+        ref,
+        { taxProfile, updatedAt: serverTimestamp() },
+        { merge: true },
+    );
+}

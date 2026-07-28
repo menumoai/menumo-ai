@@ -60,6 +60,26 @@ package servedup
     subscriptionStartAt?: #Timestamp
     subscriptionEndAt?:   #Timestamp
 
+    // Owner-supplied inputs for the /finance tax set-aside estimate.
+    taxProfile?: {
+        filingStatus:          "single" | "married_joint" | "head_of_household"
+        stateEffectiveRatePct: number
+        otherHouseholdIncome:  number
+    }
+
+    // Statutory tax figures as confirmed or corrected by the owner. Menumo
+    // ships defaults, but they are transcribed by hand, so the estimate is
+    // labelled unverified until verifiedAt is set by a human who checked them.
+    taxFigures?: {
+        taxYear:               number
+        standardDeduction:     number
+        brackets: [...{ upTo: number, rate: number }]
+        ssWageBase:            number
+        qbiThreshold:          number
+        addlMedicareThreshold: number
+        verifiedAt?:           #Timestamp
+    }
+
     // Set when the /get-started setup checklist reaches 5 of 5. Stops the
     // post-signup redirect; the step ticks themselves are always derived.
     onboardingCompletedAt?: #Timestamp

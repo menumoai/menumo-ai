@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
     AlertCircle,
     Calendar,
@@ -11,17 +11,28 @@ import {
     TrendingUp,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
+import { Lock } from "lucide-react";
+import { useAccount } from "../account/AccountContext";
+import { useAnalyticsSnapshot } from "../hooks/useAnalyticsSnapshot";
+import { saveTaxFigures, saveTaxProfile } from "../services/accounts";
+import { TaxProfileDialog } from "../components/finance/TaxProfileDialog";
+import { Contractor1099Panel } from "../components/finance/Contractor1099Panel";
+import { UpgradePrompt } from "../components/finance/UpgradePrompt";
+import { hasCapability } from "../account/entitlements";
 import {
-    DEMO_AVAILABLE_REPORTS,
-    DEMO_EXPENSES,
-    DEMO_MONTHLY_TREND,
-    DEMO_PERIOD_DATA,
-    type AvailableReport,
+    estimateTax,
+    defaultTaxFigures,
+    isTaxProfileConfigured,
+    TAX_YEAR,
+    type TaxProfile,
+} from "../analysis/tax";
+import {
+    computeFinanceOverview,
     type FinanceExpense,
     type FinancePeriod,
     type FinancePeriodData,
     type MonthlyTrend,
-} from "../finance/fixtures";
+} from "../analysis/finance";
 
 const REPORT_ICONS: Record<string, typeof FileText> = {
     "Monthly P&L Statement": FileText,
@@ -29,6 +40,11 @@ const REPORT_ICONS: Record<string, typeof FileText> = {
     "Expense Breakdown": TrendingDown,
     "Revenue by Location": Calendar,
 };
+
+/** Guards against divide-by-zero now that revenue can genuinely be 0. */
+function pctOfRevenue(value: number, revenue: number) {
+    return revenue > 0 ? ((value / revenue) * 100).toFixed(1) : "0.0";
+}
 
 function formatCurrency(value: number) {
     return value.toLocaleString("en-US", {
@@ -89,12 +105,78 @@ export default function FinanceTaxesPage() {
     const [period, setPeriod] = useState<FinancePeriod>("month");
     const [toast, setToast] = useState<string | null>(null);
 
-    const periods: Record<FinancePeriod, FinancePeriodData> = DEMO_PERIOD_DATA;
-    const expenses: FinanceExpense[] = DEMO_EXPENSES;
-    const monthlyTrend: MonthlyTrend[] = DEMO_MONTHLY_TREND;
-    const availableReports: AvailableReport[] = DEMO_AVAILABLE_REPORTS;
+    const { accountId, account } = useAccount();
+    const [taxDialogOpen, setTaxDialogOpen] = useState(false);
+    const [savingTax, setSavingTax] = useState(false);
+    const { snapshot, loading, error } = useAnalyticsSnapshot(accountId);
 
-    const data = periods[period];
+    // Real P&L from this account's own orders and expenses. Every figure on
+    // this page used to be a hardcoded fixture shown identically to everyone.
+    const overview = useMemo(
+        () => computeFinanceOverview(snapshot),
+        [snapshot],
+    );
+
+    const periods: Record<FinancePeriod, FinancePeriodData> = overview.periods;
+    const expenses: FinanceExpense[] = overview.expenses;
+    const monthlyTrend: MonthlyTrend[] = overview.monthlyTrend;
+
+    // "Advanced P&L" is sold on the Business plan. Basic P&L - the current
+    // period, its KPIs and the expense breakdown - stays on every plan; what is
+    // gated is the comparative reporting. Pinning the period here means a stale
+    // selection cannot leak a quarter view after a downgrade.
+    const canUseAdvancedPnl = hasCapability(account, "advancedPnl");
+    const effectivePeriod = canUseAdvancedPnl ? period : "month";
+    const data = periods[effectivePeriod];
+
+    // Real estimate: SE tax, federal brackets and QBI, stacked on any other
+    // household income. Falls back to an unconfigured state that prompts rather
+    // than inventing a filing status.
+    const taxProfile = (account?.taxProfile ?? null) as TaxProfile | null;
+    const taxConfigured = isTaxProfileConfigured(taxProfile);
+
+    // Statutory figures: the owner's confirmed set if there is one, otherwise
+    // the shipped defaults. Those defaults were transcribed by hand rather than
+    // taken from an IRS feed, so an estimate built on them is labelled
+    // unverified until a person records that they have checked them.
+    const storedFigures = account?.taxFigures ?? null;
+    const figures = useMemo(
+        () =>
+            storedFigures
+                ? {
+                      taxYear: storedFigures.taxYear,
+                      standardDeduction: storedFigures.standardDeduction,
+                      brackets: storedFigures.brackets,
+                      ssWageBase: storedFigures.ssWageBase,
+                      qbiThreshold: storedFigures.qbiThreshold,
+                      addlMedicareThreshold: storedFigures.addlMedicareThreshold,
+                  }
+                : defaultTaxFigures(
+                      taxProfile?.filingStatus ?? "single",
+                  ),
+        [storedFigures, taxProfile?.filingStatus],
+    );
+    const figuresVerified = Boolean(storedFigures?.verifiedAt);
+    const tax = useMemo(
+        () =>
+            taxConfigured
+                ? estimateTax(data.netProfit, taxProfile, figures)
+                : null,
+        [taxConfigured, taxProfile, data.netProfit, figures],
+    );
+
+    // These cards are labelled as planned surfaces, not downloads. Their period
+    // captions still came from fixtures ("March 2026"), so derive them from the
+    // real computed periods instead of stating a date that is not ours.
+    const availableReports = useMemo(
+        () => [
+            { name: "Monthly P&L Statement", period: periods.month.label },
+            { name: "Sales Tax Summary", period: periods.quarter.label },
+            { name: "Expense Breakdown", period: periods.month.label },
+            { name: "Revenue by Location", period: "Last 30 days" },
+        ],
+        [periods],
+    );
     const grossMarginPct =
         data.revenue > 0 ? ((data.grossProfit / data.revenue) * 100).toFixed(1) : "0.0";
     const netMarginPct =
@@ -106,11 +188,11 @@ export default function FinanceTaxesPage() {
         const rows: string[][] = [
             ["Category", "Amount", "% of Revenue"],
             ["Revenue", `$${data.revenue}`, "100%"],
-            ["Cost of Goods Sold", `$${data.cogs}`, `${((data.cogs / data.revenue) * 100).toFixed(1)}%`],
+            ["Cost of Goods Sold", `$${data.cogs}`, `${pctOfRevenue(data.cogs, data.revenue)}%`],
             ["Gross Profit", `$${data.grossProfit}`, `${grossMarginPct}%`],
-            ["Operating Expenses", `$${data.operatingExpenses}`, `${((data.operatingExpenses / data.revenue) * 100).toFixed(1)}%`],
+            ["Operating Expenses", `$${data.operatingExpenses}`, `${pctOfRevenue(data.operatingExpenses, data.revenue)}%`],
             ["Net Profit", `$${data.netProfit}`, `${netMarginPct}%`],
-            ["Tax Estimate", `$${data.taxEstimate}`, ""],
+            ["Tax set-aside (estimate)", tax ? `$${tax.total}` : "not configured", tax ? `${tax.effectiveRatePct}%` : ""],
             [""],
             ["Expense Detail", "Amount", "% of Revenue"],
             ...expenses.map((expense) => [
@@ -125,9 +207,31 @@ export default function FinanceTaxesPage() {
         setTimeout(() => setToast(null), 3000);
     }
 
+    if (loading) {
+        return (
+            <div className="p-4 sm:p-6 lg:p-8">
+                <p className="text-sm text-gray-500">Loading your financials…</p>
+            </div>
+        );
+    }
+
     return (
         <div className="p-4 sm:p-6 lg:p-8">
             <div className="mx-auto max-w-7xl space-y-6">
+                {error && (
+                    <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        {error}
+                    </div>
+                )}
+
+                {overview.isEmpty && (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                        <span className="font-semibold">No financial data yet.</span>{" "}
+                        Log some orders and expenses and this page fills in from your
+                        own numbers.
+                    </div>
+                )}
+
                 {toast && (
                     <div className="fixed right-4 top-20 z-50 rounded-xl bg-green-600 px-4 py-3 text-sm font-medium text-white shadow-lg">
                         {toast}
@@ -151,38 +255,69 @@ export default function FinanceTaxesPage() {
                             Financial reports and tax documentation made simple
                         </p>
                         <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs text-amber-900">
-                            <span className="font-semibold uppercase tracking-wide">Beta</span>
+                            <span className="font-semibold uppercase tracking-wide">
+                                Estimate
+                            </span>
                             <span>
-                                Numbers shown are sample data while live finance aggregates are being built.
+                                P&amp;L is from your own orders and expenses. Tax figures
+                                are a set-aside estimate, not a filing figure.
                             </span>
                         </div>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3">
                         <div className="flex rounded-lg bg-gray-100 p-1">
-                            {(["month", "quarter", "year"] as FinancePeriod[]).map((option) => (
-                                <button
-                                    key={option}
-                                    type="button"
-                                    onClick={() => setPeriod(option)}
-                                    className={`rounded-md px-3 py-1 text-sm font-medium capitalize transition-colors ${
-                                        period === option
-                                            ? "bg-white text-gray-900 shadow"
-                                            : "text-gray-500 hover:text-gray-700"
-                                    }`}
-                                >
-                                    {option}
-                                </button>
-                            ))}
+                            {(["month", "quarter", "year"] as FinancePeriod[]).map((option) => {
+                                // Quarter and year are the comparative reporting
+                                // sold as Advanced P&L. Rendered locked rather
+                                // than hidden, so the plan boundary is legible.
+                                const locked = option !== "month" && !canUseAdvancedPnl;
+
+                                return (
+                                    <button
+                                        key={option}
+                                        type="button"
+                                        disabled={locked}
+                                        title={
+                                            locked
+                                                ? "Quarter and year comparisons are part of Advanced P&L"
+                                                : undefined
+                                        }
+                                        onClick={() => !locked && setPeriod(option)}
+                                        className={`flex items-center gap-1 rounded-md px-3 py-1 text-sm font-medium capitalize transition-colors ${
+                                            locked
+                                                ? "cursor-not-allowed text-gray-400"
+                                                : effectivePeriod === option
+                                                  ? "bg-white text-gray-900 shadow"
+                                                  : "text-gray-500 hover:text-gray-700"
+                                        }`}
+                                    >
+                                        {option}
+                                        {locked && <Lock className="h-3 w-3" />}
+                                    </button>
+                                );
+                            })}
                         </div>
 
-                        <Button
-                            onClick={handleExport}
-                            className="rounded-xl bg-gradient-to-r from-[#D94C3D] to-[#E67E50] text-white shadow-lg hover:from-[#C43D2E] hover:to-[#D96D3F]"
-                        >
-                            <Download className="mr-2 h-4 w-4" />
-                            Export All Reports
-                        </Button>
+                        {canUseAdvancedPnl ? (
+                            <Button
+                                onClick={handleExport}
+                                className="rounded-xl bg-gradient-to-r from-[#D94C3D] to-[#E67E50] text-white shadow-lg hover:from-[#C43D2E] hover:to-[#D96D3F]"
+                            >
+                                <Download className="mr-2 h-4 w-4" />
+                                Export All Reports
+                            </Button>
+                        ) : (
+                            <Button
+                                variant="secondary"
+                                disabled
+                                title="CSV export is part of Advanced P&L"
+                                className="rounded-xl"
+                            >
+                                <Lock className="mr-2 h-4 w-4" />
+                                Export All Reports
+                            </Button>
+                        )}
                     </div>
                 </div>
 
@@ -196,54 +331,139 @@ export default function FinanceTaxesPage() {
                                 className="text-xl font-bold text-gray-900"
                                 style={{ fontFamily: "Poppins, sans-serif" }}
                             >
-                                Tax Documentation Status
+                                Tax set-aside estimate
                             </h2>
                             <p className="text-sm text-gray-600">{data.label}</p>
                         </div>
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            className="ml-auto"
+                            onClick={() => setTaxDialogOpen(true)}
+                        >
+                            {taxConfigured ? "Edit settings" : "Set up estimate"}
+                        </Button>
                     </div>
 
-                    <div className="grid gap-4 md:grid-cols-3">
-                        <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-                            <div className="mb-2 flex items-center gap-2">
-                                <CheckCircle2 className="h-5 w-5 text-green-600" />
-                                <h3 className="font-semibold text-gray-900">Sales Tax Ready</h3>
-                            </div>
-                            <div className="text-2xl font-bold text-gray-900">
-                                {formatCurrency(4359)}
-                            </div>
-                            <p className="mt-1 text-xs text-gray-500">Collected this period</p>
-                            <Button size="sm" variant="secondary" className="mt-3 w-full">
-                                <Download className="mr-2 h-3 w-3" />
-                                Download Report
-                            </Button>
+                    {/* The figures are shipped defaults, transcribed by hand
+                        rather than pulled from an IRS feed. Saying so is the
+                        honest position: an owner reserving money against this
+                        should know whether a person has checked the tables, and
+                        can correct them if not. */}
+                    {taxConfigured && !figuresVerified && (
+                        <div className="mb-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                            <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
+                            <span>
+                                <span className="font-semibold">
+                                    Using unverified {figures.taxYear} tax figures.
+                                </span>{" "}
+                                Menumo ships standard federal brackets and
+                                deductions as a starting point, but nobody has
+                                confirmed them for your return yet. Check them
+                                against the IRS tables, or ask your accountant,
+                                before you rely on this number.{" "}
+                                <button
+                                    type="button"
+                                    onClick={() => setTaxDialogOpen(true)}
+                                    className="font-semibold underline underline-offset-2"
+                                >
+                                    Review the figures
+                                </button>
+                            </span>
                         </div>
+                    )}
 
+                    {tax ? (
+                        <div className="grid gap-4 md:grid-cols-4">
+                            <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+                                <div className="text-sm text-gray-600">
+                                    Self-employment tax
+                                </div>
+                                <div className="mt-1 text-xl font-bold text-gray-900">
+                                    {formatCurrency(tax.selfEmploymentTax)}
+                                </div>
+                                <p className="mt-1 text-xs text-gray-500">
+                                    Social Security + Medicare on 92.35% of profit
+                                </p>
+                            </div>
+                            <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+                                <div className="text-sm text-gray-600">
+                                    Federal income tax
+                                </div>
+                                <div className="mt-1 text-xl font-bold text-gray-900">
+                                    {formatCurrency(tax.federalIncomeTax)}
+                                </div>
+                                <p className="mt-1 text-xs text-gray-500">
+                                    What the truck adds on top of your other income
+                                </p>
+                            </div>
+                            <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+                                <div className="text-sm text-gray-600">State + local</div>
+                                <div className="mt-1 text-xl font-bold text-gray-900">
+                                    {formatCurrency(tax.stateTax)}
+                                </div>
+                                <p className="mt-1 text-xs text-gray-500">
+                                    At the rate you set
+                                </p>
+                            </div>
+                            <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+                                <div className="text-sm text-gray-600">
+                                    QBI deduction applied
+                                </div>
+                                <div className="mt-1 text-xl font-bold text-green-700">
+                                    {formatCurrency(tax.qbiDeduction)}
+                                </div>
+                                <p className="mt-1 text-xs text-gray-500">
+                                    20% pass-through deduction, already netted off
+                                </p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+                            <h3 className="font-semibold text-gray-900">
+                                Estimate your tax set-aside
+                            </h3>
+                            <p className="mt-1 max-w-2xl text-sm text-gray-600">
+                                We can estimate self-employment tax, federal income tax
+                                and the QBI deduction from your P&amp;L. Three things we
+                                cannot read from your sales: filing status, your state
+                                rate, and any other household income.
+                            </p>
+                        </div>
+                    )}
+
+                    <div className="mt-4 grid gap-4 md:grid-cols-2">
                         <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
                             <div className="mb-2 flex items-center gap-2">
                                 <CheckCircle2 className="h-5 w-5 text-green-600" />
-                                <h3 className="font-semibold text-gray-900">Expense Tracking</h3>
+                                <h3 className="font-semibold text-gray-900">
+                                    Deductible expenses
+                                </h3>
                             </div>
                             <div className="text-2xl font-bold text-gray-900">
                                 {formatCurrency(data.cogs + data.operatingExpenses)}
                             </div>
-                            <p className="mt-1 text-xs text-gray-500">Total deductible expenses</p>
-                            <Button size="sm" variant="secondary" className="mt-3 w-full">
-                                <Download className="mr-2 h-3 w-3" />
-                                Download Report
-                            </Button>
+                            <p className="mt-1 text-xs text-gray-500">
+                                Everything you logged this period, from your own expense
+                                records
+                            </p>
                         </div>
 
-                        <div className="rounded-xl border border-orange-200 bg-white p-4 shadow-sm">
+                        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                             <div className="mb-2 flex items-center gap-2">
-                                <AlertCircle className="h-5 w-5 text-orange-600" />
-                                <h3 className="font-semibold text-gray-900">1099 Forms</h3>
+                                <AlertCircle className="h-5 w-5 text-gray-400" />
+                                <h3 className="font-semibold text-gray-900">
+                                    Sales tax
+                                </h3>
                             </div>
-                            <div className="text-2xl font-bold text-gray-900">Due Feb 1</div>
-                            <p className="mt-1 text-xs text-gray-500">2 contractors to file</p>
-                            <Button size="sm" className="mt-3 w-full bg-orange-100 text-orange-700 hover:bg-orange-200">
-                                <FileText className="mr-2 h-3 w-3" />
-                                Generate Forms
-                            </Button>
+                            <div className="text-2xl font-bold text-gray-400">
+                                Not tracked
+                            </div>
+                            <p className="mt-1 text-xs text-gray-500">
+                                Menumo does not record sales tax on orders, so we cannot
+                                report on it. This estimate covers income and
+                                self-employment tax only.
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -273,9 +493,13 @@ export default function FinanceTaxesPage() {
                         iconTint="text-green-600"
                     />
                     <KpiTile
-                        label="Tax Liability"
-                        value={formatCurrency(data.taxEstimate)}
-                        hint="Set aside recommended"
+                        label="Tax set-aside"
+                        value={tax ? formatCurrency(tax.total) : "Set up"}
+                        hint={
+                            tax
+                                ? `${tax.effectiveRatePct}% effective · TY${TAX_YEAR}`
+                                : "Add filing status to estimate"
+                        }
                         Icon={Receipt}
                         iconTint="text-purple-600"
                     />
@@ -329,12 +553,19 @@ export default function FinanceTaxesPage() {
                                     After-Tax Profit
                                 </span>
                                 <span className="text-sm font-bold text-amber-700">
-                                    {formatCurrency(data.netProfit - data.taxEstimate)}
+                                    {formatCurrency(data.netProfit - (tax?.total ?? 0))}
                                 </span>
                             </div>
                         </div>
                     </div>
 
+                    {!canUseAdvancedPnl ? (
+                        <UpgradePrompt capability="advancedPnl" title="Advanced P&L">
+                            Compare quarters and years, see six months of revenue
+                            against profit, and export your P&amp;L as a CSV for your
+                            accountant. This month&rsquo;s figures stay on every plan.
+                        </UpgradePrompt>
+                    ) : (
                     <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
                         <h3
                             className="mb-4 text-xl font-bold text-gray-900"
@@ -384,6 +615,7 @@ export default function FinanceTaxesPage() {
                             </span>
                         </div>
                     </div>
+                    )}
                 </div>
 
                 <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
@@ -455,6 +687,12 @@ export default function FinanceTaxesPage() {
                     </div>
                 </div>
 
+                <Contractor1099Panel
+                    accountId={accountId}
+                    account={account}
+                    taxYear={new Date().getFullYear()}
+                />
+
                 <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
                     <div className="mb-5 flex items-center justify-between gap-4">
                         <div>
@@ -465,7 +703,7 @@ export default function FinanceTaxesPage() {
                                 Available Reports
                             </h3>
                             <p className="mt-1 text-sm text-gray-500">
-                                Download-ready reporting surfaces planned for the live finance rollout.
+                                Report exports are not built yet. Use Export All Reports above for a CSV of this P&L.
                             </p>
                         </div>
                     </div>
@@ -490,6 +728,36 @@ export default function FinanceTaxesPage() {
                     </div>
                 </section>
             </div>
+
+            <TaxProfileDialog
+                open={taxDialogOpen}
+                initial={taxProfile}
+                figures={figures}
+                verified={figuresVerified}
+                saving={savingTax}
+                onClose={() => !savingTax && setTaxDialogOpen(false)}
+                onSave={async (profile, nextFigures) => {
+                    if (!accountId) return;
+                    setSavingTax(true);
+                    try {
+                        await saveTaxProfile(accountId, profile);
+                        // Only written when the owner ticked the confirmation,
+                        // so verifiedAt always means a person actually checked.
+                        if (nextFigures) {
+                            await saveTaxFigures(accountId, nextFigures);
+                        }
+                        setTaxDialogOpen(false);
+                        setToast("Tax settings saved");
+                        setTimeout(() => setToast(null), 3000);
+                    } catch (err) {
+                        console.error("Failed to save tax profile", err);
+                        setToast("Could not save tax settings");
+                        setTimeout(() => setToast(null), 3000);
+                    } finally {
+                        setSavingTax(false);
+                    }
+                }}
+            />
         </div>
     );
 }
