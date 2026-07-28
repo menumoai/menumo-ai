@@ -15,6 +15,7 @@ import { useAccount } from "../account/AccountContext";
 import { useAnalyticsSnapshot } from "../hooks/useAnalyticsSnapshot";
 import { saveTaxProfile } from "../services/accounts";
 import { TaxProfileDialog } from "../components/finance/TaxProfileDialog";
+import { Contractor1099Panel } from "../components/finance/Contractor1099Panel";
 import {
     estimateTax,
     isTaxProfileConfigured,
@@ -585,6 +586,12 @@ export default function FinanceTaxesPage() {
                         </table>
                     </div>
                 </div>
+
+                <Contractor1099Panel
+                    accountId={accountId}
+                    account={account}
+                    taxYear={new Date().getFullYear()}
+                />
 
                 <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
                     <div className="mb-5 flex items-center justify-between gap-4">
