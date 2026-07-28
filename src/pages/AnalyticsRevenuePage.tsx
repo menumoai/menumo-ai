@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { BarChart3, RefreshCw, TrendingUp } from "lucide-react";
 import { computeRevenueAnalytics } from "../analysis/revenue";
 import { BottomItemsCard } from "../components/analytics/BottomItemsCard";
@@ -162,6 +163,35 @@ export function AnalyticsRevenuePage() {
                         </div>
                     </div>
                 </div>
+
+                {/* A brand new account used to land here on zeroed charts with
+                    no explanation. Say why they are empty and where the data
+                    comes from, without hiding the page they came to see. */}
+                {!loading && !error && snapshot.orders.length === 0 && (
+                    <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
+                        <div className="min-w-[240px] flex-1">
+                            <h2 className="font-semibold text-gray-900">
+                                No sales to analyze yet
+                            </h2>
+                            <p className="mt-1 text-sm text-gray-500">
+                                Every chart on this page reads your real orders.
+                                Log one day of sales and they light up.
+                            </p>
+                        </div>
+                        <Link
+                            to="/orders/new"
+                            className="rounded-full bg-gradient-to-r from-[#5B9A8B] to-[#4A7C70] px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-95"
+                        >
+                            Log an order
+                        </Link>
+                        <Link
+                            to="/get-started"
+                            className="rounded-full border border-gray-300 px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                        >
+                            Open the setup checklist
+                        </Link>
+                    </div>
+                )}
 
                 {error && (
                     <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
