@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
     AlertCircle,
     Calendar,
@@ -11,17 +11,16 @@ import {
     TrendingUp,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
+import { useAccount } from "../account/AccountContext";
+import { useAnalyticsSnapshot } from "../hooks/useAnalyticsSnapshot";
 import {
-    DEMO_AVAILABLE_REPORTS,
-    DEMO_EXPENSES,
-    DEMO_MONTHLY_TREND,
-    DEMO_PERIOD_DATA,
-    type AvailableReport,
+    computeFinanceOverview,
+    ESTIMATED_TAX_RATE,
     type FinanceExpense,
     type FinancePeriod,
     type FinancePeriodData,
     type MonthlyTrend,
-} from "../finance/fixtures";
+} from "../analysis/finance";
 
 const REPORT_ICONS: Record<string, typeof FileText> = {
     "Monthly P&L Statement": FileText,
@@ -29,6 +28,11 @@ const REPORT_ICONS: Record<string, typeof FileText> = {
     "Expense Breakdown": TrendingDown,
     "Revenue by Location": Calendar,
 };
+
+/** Guards against divide-by-zero now that revenue can genuinely be 0. */
+function pctOfRevenue(value: number, revenue: number) {
+    return revenue > 0 ? ((value / revenue) * 100).toFixed(1) : "0.0";
+}
 
 function formatCurrency(value: number) {
     return value.toLocaleString("en-US", {
@@ -89,12 +93,34 @@ export default function FinanceTaxesPage() {
     const [period, setPeriod] = useState<FinancePeriod>("month");
     const [toast, setToast] = useState<string | null>(null);
 
-    const periods: Record<FinancePeriod, FinancePeriodData> = DEMO_PERIOD_DATA;
-    const expenses: FinanceExpense[] = DEMO_EXPENSES;
-    const monthlyTrend: MonthlyTrend[] = DEMO_MONTHLY_TREND;
-    const availableReports: AvailableReport[] = DEMO_AVAILABLE_REPORTS;
+    const { accountId } = useAccount();
+    const { snapshot, loading, error } = useAnalyticsSnapshot(accountId);
+
+    // Real P&L from this account's own orders and expenses. Every figure on
+    // this page used to be a hardcoded fixture shown identically to everyone.
+    const overview = useMemo(
+        () => computeFinanceOverview(snapshot),
+        [snapshot],
+    );
+
+    const periods: Record<FinancePeriod, FinancePeriodData> = overview.periods;
+    const expenses: FinanceExpense[] = overview.expenses;
+    const monthlyTrend: MonthlyTrend[] = overview.monthlyTrend;
 
     const data = periods[period];
+
+    // These cards are labelled as planned surfaces, not downloads. Their period
+    // captions still came from fixtures ("March 2026"), so derive them from the
+    // real computed periods instead of stating a date that is not ours.
+    const availableReports = useMemo(
+        () => [
+            { name: "Monthly P&L Statement", period: periods.month.label },
+            { name: "Sales Tax Summary", period: periods.quarter.label },
+            { name: "Expense Breakdown", period: periods.month.label },
+            { name: "Revenue by Location", period: "Last 30 days" },
+        ],
+        [periods],
+    );
     const grossMarginPct =
         data.revenue > 0 ? ((data.grossProfit / data.revenue) * 100).toFixed(1) : "0.0";
     const netMarginPct =
@@ -106,11 +132,11 @@ export default function FinanceTaxesPage() {
         const rows: string[][] = [
             ["Category", "Amount", "% of Revenue"],
             ["Revenue", `$${data.revenue}`, "100%"],
-            ["Cost of Goods Sold", `$${data.cogs}`, `${((data.cogs / data.revenue) * 100).toFixed(1)}%`],
+            ["Cost of Goods Sold", `$${data.cogs}`, `${pctOfRevenue(data.cogs, data.revenue)}%`],
             ["Gross Profit", `$${data.grossProfit}`, `${grossMarginPct}%`],
-            ["Operating Expenses", `$${data.operatingExpenses}`, `${((data.operatingExpenses / data.revenue) * 100).toFixed(1)}%`],
+            ["Operating Expenses", `$${data.operatingExpenses}`, `${pctOfRevenue(data.operatingExpenses, data.revenue)}%`],
             ["Net Profit", `$${data.netProfit}`, `${netMarginPct}%`],
-            ["Tax Estimate", `$${data.taxEstimate}`, ""],
+            [`Tax set-aside (est. ${Math.round(ESTIMATED_TAX_RATE * 100)}% of net profit)`, `$${data.taxEstimate}`, ""],
             [""],
             ["Expense Detail", "Amount", "% of Revenue"],
             ...expenses.map((expense) => [
@@ -125,9 +151,31 @@ export default function FinanceTaxesPage() {
         setTimeout(() => setToast(null), 3000);
     }
 
+    if (loading) {
+        return (
+            <div className="p-4 sm:p-6 lg:p-8">
+                <p className="text-sm text-gray-500">Loading your financials…</p>
+            </div>
+        );
+    }
+
     return (
         <div className="p-4 sm:p-6 lg:p-8">
             <div className="mx-auto max-w-7xl space-y-6">
+                {error && (
+                    <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        {error}
+                    </div>
+                )}
+
+                {overview.isEmpty && (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                        <span className="font-semibold">No financial data yet.</span>{" "}
+                        Log some orders and expenses and this page fills in from your
+                        own numbers.
+                    </div>
+                )}
+
                 {toast && (
                     <div className="fixed right-4 top-20 z-50 rounded-xl bg-green-600 px-4 py-3 text-sm font-medium text-white shadow-lg">
                         {toast}
@@ -202,48 +250,46 @@ export default function FinanceTaxesPage() {
                         </div>
                     </div>
 
-                    <div className="grid gap-4 md:grid-cols-3">
+                    <div className="grid gap-4 md:grid-cols-2">
                         <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
                             <div className="mb-2 flex items-center gap-2">
                                 <CheckCircle2 className="h-5 w-5 text-green-600" />
-                                <h3 className="font-semibold text-gray-900">Sales Tax Ready</h3>
-                            </div>
-                            <div className="text-2xl font-bold text-gray-900">
-                                {formatCurrency(4359)}
-                            </div>
-                            <p className="mt-1 text-xs text-gray-500">Collected this period</p>
-                            <Button size="sm" variant="secondary" className="mt-3 w-full">
-                                <Download className="mr-2 h-3 w-3" />
-                                Download Report
-                            </Button>
-                        </div>
-
-                        <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-                            <div className="mb-2 flex items-center gap-2">
-                                <CheckCircle2 className="h-5 w-5 text-green-600" />
-                                <h3 className="font-semibold text-gray-900">Expense Tracking</h3>
+                                <h3 className="font-semibold text-gray-900">
+                                    Deductible expenses
+                                </h3>
                             </div>
                             <div className="text-2xl font-bold text-gray-900">
                                 {formatCurrency(data.cogs + data.operatingExpenses)}
                             </div>
-                            <p className="mt-1 text-xs text-gray-500">Total deductible expenses</p>
-                            <Button size="sm" variant="secondary" className="mt-3 w-full">
-                                <Download className="mr-2 h-3 w-3" />
-                                Download Report
-                            </Button>
+                            <p className="mt-1 text-xs text-gray-500">
+                                Everything you logged this period, from your own expense
+                                records
+                            </p>
                         </div>
 
-                        <div className="rounded-xl border border-orange-200 bg-white p-4 shadow-sm">
+                        {/* Replaces two fabricated cards: a hardcoded $4,359
+                            "sales tax collected" and a "1099 Forms - Due Feb 1,
+                            2 contractors to file", each with a download button
+                            that did nothing. Menumo records no sales tax on
+                            orders and has no contractor data, so neither figure
+                            could be produced. Stating them next to a download
+                            control invites someone to file against a number we
+                            invented. */}
+                        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                             <div className="mb-2 flex items-center gap-2">
-                                <AlertCircle className="h-5 w-5 text-orange-600" />
-                                <h3 className="font-semibold text-gray-900">1099 Forms</h3>
+                                <AlertCircle className="h-5 w-5 text-gray-400" />
+                                <h3 className="font-semibold text-gray-900">
+                                    Sales tax and 1099s
+                                </h3>
                             </div>
-                            <div className="text-2xl font-bold text-gray-900">Due Feb 1</div>
-                            <p className="mt-1 text-xs text-gray-500">2 contractors to file</p>
-                            <Button size="sm" className="mt-3 w-full bg-orange-100 text-orange-700 hover:bg-orange-200">
-                                <FileText className="mr-2 h-3 w-3" />
-                                Generate Forms
-                            </Button>
+                            <div className="text-2xl font-bold text-gray-400">
+                                Not tracked yet
+                            </div>
+                            <p className="mt-1 text-xs text-gray-500">
+                                Menumo does not record sales tax on orders or contractor
+                                payments, so we cannot report on them. Keep using your
+                                existing process for filings.
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -272,10 +318,13 @@ export default function FinanceTaxesPage() {
                         Icon={TrendingUp}
                         iconTint="text-green-600"
                     />
+                    {/* Not a liability: a flat rate on net profit, ported from
+                        profitpilot's fixtures. Labelled as the rough set-aside
+                        it is, so nobody files against it. */}
                     <KpiTile
-                        label="Tax Liability"
+                        label="Tax set-aside"
                         value={formatCurrency(data.taxEstimate)}
-                        hint="Set aside recommended"
+                        hint={`Rough estimate at ${Math.round(ESTIMATED_TAX_RATE * 100)}% of net profit`}
                         Icon={Receipt}
                         iconTint="text-purple-600"
                     />
