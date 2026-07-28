@@ -60,6 +60,13 @@ package servedup
     subscriptionStartAt?: #Timestamp
     subscriptionEndAt?:   #Timestamp
 
+    // Owner-supplied inputs for the /finance tax set-aside estimate.
+    taxProfile?: {
+        filingStatus:          "single" | "married_joint" | "head_of_household"
+        stateEffectiveRatePct: number
+        otherHouseholdIncome:  number
+    }
+
     // Set when the /get-started setup checklist reaches 5 of 5. Stops the
     // post-signup redirect; the step ticks themselves are always derived.
     onboardingCompletedAt?: #Timestamp

@@ -13,9 +13,16 @@ import {
 import { Button } from "../components/ui/button";
 import { useAccount } from "../account/AccountContext";
 import { useAnalyticsSnapshot } from "../hooks/useAnalyticsSnapshot";
+import { saveTaxProfile } from "../services/accounts";
+import { TaxProfileDialog } from "../components/finance/TaxProfileDialog";
+import {
+    estimateTax,
+    isTaxProfileConfigured,
+    TAX_YEAR,
+    type TaxProfile,
+} from "../analysis/tax";
 import {
     computeFinanceOverview,
-    ESTIMATED_TAX_RATE,
     type FinanceExpense,
     type FinancePeriod,
     type FinancePeriodData,
@@ -93,7 +100,9 @@ export default function FinanceTaxesPage() {
     const [period, setPeriod] = useState<FinancePeriod>("month");
     const [toast, setToast] = useState<string | null>(null);
 
-    const { accountId } = useAccount();
+    const { accountId, account } = useAccount();
+    const [taxDialogOpen, setTaxDialogOpen] = useState(false);
+    const [savingTax, setSavingTax] = useState(false);
     const { snapshot, loading, error } = useAnalyticsSnapshot(accountId);
 
     // Real P&L from this account's own orders and expenses. Every figure on
@@ -108,6 +117,16 @@ export default function FinanceTaxesPage() {
     const monthlyTrend: MonthlyTrend[] = overview.monthlyTrend;
 
     const data = periods[period];
+
+    // Real estimate: SE tax, federal brackets and QBI, stacked on any other
+    // household income. Falls back to an unconfigured state that prompts rather
+    // than inventing a filing status.
+    const taxProfile = (account?.taxProfile ?? null) as TaxProfile | null;
+    const taxConfigured = isTaxProfileConfigured(taxProfile);
+    const tax = useMemo(
+        () => (taxConfigured ? estimateTax(data.netProfit, taxProfile) : null),
+        [taxConfigured, taxProfile, data.netProfit],
+    );
 
     // These cards are labelled as planned surfaces, not downloads. Their period
     // captions still came from fixtures ("March 2026"), so derive them from the
@@ -136,7 +155,7 @@ export default function FinanceTaxesPage() {
             ["Gross Profit", `$${data.grossProfit}`, `${grossMarginPct}%`],
             ["Operating Expenses", `$${data.operatingExpenses}`, `${pctOfRevenue(data.operatingExpenses, data.revenue)}%`],
             ["Net Profit", `$${data.netProfit}`, `${netMarginPct}%`],
-            [`Tax set-aside (est. ${Math.round(ESTIMATED_TAX_RATE * 100)}% of net profit)`, `$${data.taxEstimate}`, ""],
+            ["Tax set-aside (estimate)", tax ? `$${tax.total}` : "not configured", tax ? `${tax.effectiveRatePct}%` : ""],
             [""],
             ["Expense Detail", "Amount", "% of Revenue"],
             ...expenses.map((expense) => [
@@ -199,9 +218,12 @@ export default function FinanceTaxesPage() {
                             Financial reports and tax documentation made simple
                         </p>
                         <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs text-amber-900">
-                            <span className="font-semibold uppercase tracking-wide">Beta</span>
+                            <span className="font-semibold uppercase tracking-wide">
+                                Estimate
+                            </span>
                             <span>
-                                Numbers shown are sample data while live finance aggregates are being built.
+                                P&amp;L is from your own orders and expenses. Tax figures
+                                are a set-aside estimate, not a filing figure.
                             </span>
                         </div>
                     </div>
@@ -244,13 +266,80 @@ export default function FinanceTaxesPage() {
                                 className="text-xl font-bold text-gray-900"
                                 style={{ fontFamily: "Poppins, sans-serif" }}
                             >
-                                Tax Documentation Status
+                                Tax set-aside estimate
                             </h2>
                             <p className="text-sm text-gray-600">{data.label}</p>
                         </div>
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            className="ml-auto"
+                            onClick={() => setTaxDialogOpen(true)}
+                        >
+                            {taxConfigured ? "Edit settings" : "Set up estimate"}
+                        </Button>
                     </div>
 
-                    <div className="grid gap-4 md:grid-cols-2">
+                    {tax ? (
+                        <div className="grid gap-4 md:grid-cols-4">
+                            <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+                                <div className="text-sm text-gray-600">
+                                    Self-employment tax
+                                </div>
+                                <div className="mt-1 text-xl font-bold text-gray-900">
+                                    {formatCurrency(tax.selfEmploymentTax)}
+                                </div>
+                                <p className="mt-1 text-xs text-gray-500">
+                                    Social Security + Medicare on 92.35% of profit
+                                </p>
+                            </div>
+                            <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+                                <div className="text-sm text-gray-600">
+                                    Federal income tax
+                                </div>
+                                <div className="mt-1 text-xl font-bold text-gray-900">
+                                    {formatCurrency(tax.federalIncomeTax)}
+                                </div>
+                                <p className="mt-1 text-xs text-gray-500">
+                                    What the truck adds on top of your other income
+                                </p>
+                            </div>
+                            <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+                                <div className="text-sm text-gray-600">State + local</div>
+                                <div className="mt-1 text-xl font-bold text-gray-900">
+                                    {formatCurrency(tax.stateTax)}
+                                </div>
+                                <p className="mt-1 text-xs text-gray-500">
+                                    At the rate you set
+                                </p>
+                            </div>
+                            <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+                                <div className="text-sm text-gray-600">
+                                    QBI deduction applied
+                                </div>
+                                <div className="mt-1 text-xl font-bold text-green-700">
+                                    {formatCurrency(tax.qbiDeduction)}
+                                </div>
+                                <p className="mt-1 text-xs text-gray-500">
+                                    20% pass-through deduction, already netted off
+                                </p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+                            <h3 className="font-semibold text-gray-900">
+                                Estimate your tax set-aside
+                            </h3>
+                            <p className="mt-1 max-w-2xl text-sm text-gray-600">
+                                We can estimate self-employment tax, federal income tax
+                                and the QBI deduction from your P&amp;L. Three things we
+                                cannot read from your sales: filing status, your state
+                                rate, and any other household income.
+                            </p>
+                        </div>
+                    )}
+
+                    <div className="mt-4 grid gap-4 md:grid-cols-2">
                         <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
                             <div className="mb-2 flex items-center gap-2">
                                 <CheckCircle2 className="h-5 w-5 text-green-600" />
@@ -267,28 +356,20 @@ export default function FinanceTaxesPage() {
                             </p>
                         </div>
 
-                        {/* Replaces two fabricated cards: a hardcoded $4,359
-                            "sales tax collected" and a "1099 Forms - Due Feb 1,
-                            2 contractors to file", each with a download button
-                            that did nothing. Menumo records no sales tax on
-                            orders and has no contractor data, so neither figure
-                            could be produced. Stating them next to a download
-                            control invites someone to file against a number we
-                            invented. */}
                         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                             <div className="mb-2 flex items-center gap-2">
                                 <AlertCircle className="h-5 w-5 text-gray-400" />
                                 <h3 className="font-semibold text-gray-900">
-                                    Sales tax and 1099s
+                                    Sales tax
                                 </h3>
                             </div>
                             <div className="text-2xl font-bold text-gray-400">
-                                Not tracked yet
+                                Not tracked
                             </div>
                             <p className="mt-1 text-xs text-gray-500">
-                                Menumo does not record sales tax on orders or contractor
-                                payments, so we cannot report on them. Keep using your
-                                existing process for filings.
+                                Menumo does not record sales tax on orders, so we cannot
+                                report on it. This estimate covers income and
+                                self-employment tax only.
                             </p>
                         </div>
                     </div>
@@ -318,13 +399,14 @@ export default function FinanceTaxesPage() {
                         Icon={TrendingUp}
                         iconTint="text-green-600"
                     />
-                    {/* Not a liability: a flat rate on net profit, ported from
-                        profitpilot's fixtures. Labelled as the rough set-aside
-                        it is, so nobody files against it. */}
                     <KpiTile
                         label="Tax set-aside"
-                        value={formatCurrency(data.taxEstimate)}
-                        hint={`Rough estimate at ${Math.round(ESTIMATED_TAX_RATE * 100)}% of net profit`}
+                        value={tax ? formatCurrency(tax.total) : "Set up"}
+                        hint={
+                            tax
+                                ? `${tax.effectiveRatePct}% effective · TY${TAX_YEAR}`
+                                : "Add filing status to estimate"
+                        }
                         Icon={Receipt}
                         iconTint="text-purple-600"
                     />
@@ -378,7 +460,7 @@ export default function FinanceTaxesPage() {
                                     After-Tax Profit
                                 </span>
                                 <span className="text-sm font-bold text-amber-700">
-                                    {formatCurrency(data.netProfit - data.taxEstimate)}
+                                    {formatCurrency(data.netProfit - (tax?.total ?? 0))}
                                 </span>
                             </div>
                         </div>
@@ -514,7 +596,7 @@ export default function FinanceTaxesPage() {
                                 Available Reports
                             </h3>
                             <p className="mt-1 text-sm text-gray-500">
-                                Download-ready reporting surfaces planned for the live finance rollout.
+                                Report exports are not built yet. Use Export All Reports above for a CSV of this P&L.
                             </p>
                         </div>
                     </div>
@@ -539,6 +621,29 @@ export default function FinanceTaxesPage() {
                     </div>
                 </section>
             </div>
+
+            <TaxProfileDialog
+                open={taxDialogOpen}
+                initial={taxProfile}
+                saving={savingTax}
+                onClose={() => !savingTax && setTaxDialogOpen(false)}
+                onSave={async (profile) => {
+                    if (!accountId) return;
+                    setSavingTax(true);
+                    try {
+                        await saveTaxProfile(accountId, profile);
+                        setTaxDialogOpen(false);
+                        setToast("Tax settings saved");
+                        setTimeout(() => setToast(null), 3000);
+                    } catch (err) {
+                        console.error("Failed to save tax profile", err);
+                        setToast("Could not save tax settings");
+                        setTimeout(() => setToast(null), 3000);
+                    } finally {
+                        setSavingTax(false);
+                    }
+                }}
+            />
         </div>
     );
 }

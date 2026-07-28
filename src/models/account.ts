@@ -27,6 +27,17 @@ export interface BusinessAccount {
   subscriptionEndAt?: Timestamp | null;
 
   /**
+   * Owner-supplied inputs for the tax set-aside estimate on /finance. Absent
+   * until they fill the form in; the page prompts rather than guessing, because
+   * filing status and state rate change the number substantially.
+   */
+  taxProfile?: {
+    filingStatus: "single" | "married_joint" | "head_of_household";
+    stateEffectiveRatePct: number;
+    otherHouseholdIncome: number;
+  } | null;
+
+  /**
    * Set once the setup checklist on /get-started reaches 5 of 5. Only used to
    * stop the post-signup redirect and demote the sidebar item; the individual
    * step ticks are always derived from real data, never stored.

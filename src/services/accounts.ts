@@ -76,3 +76,16 @@ export async function getBusinessAccount(id: string): Promise<BusinessAccount | 
     return snap.data() as BusinessAccount;
 }
 
+
+/** Saves the owner's tax inputs for the /finance set-aside estimate. */
+export async function saveTaxProfile(
+    accountId: string,
+    taxProfile: BusinessAccount["taxProfile"],
+): Promise<void> {
+    const ref = doc(accountsCol(), accountId);
+    await setDoc(
+        ref,
+        { taxProfile, updatedAt: serverTimestamp() },
+        { merge: true },
+    );
+}
