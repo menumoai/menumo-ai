@@ -227,7 +227,23 @@ export function estimateTax(
     const businessAgi = netProfit - deductible;
     const qbiEligible =
         businessAgi + other <= QBI_THRESHOLD[profile.filingStatus];
-    const qbiDeduction = qbiEligible ? Math.max(0, businessAgi) * QBI_RATE : 0;
+
+    // The deduction is the LESSER of 20% of qualified business income and 20%
+    // of taxable income figured before it (IRC 199A(a)). Missing that second
+    // limb overstates the deduction, which understates the set-aside - the
+    // wrong direction to be wrong in for money someone is reserving for a bill.
+    // Net capital gain also reduces the limit; we do not model investments, so
+    // taxable income before QBI is the right base here.
+    const taxableBeforeQbi = Math.max(
+        0,
+        other + businessAgi - standardDeduction,
+    );
+    const qbiDeduction = qbiEligible
+        ? Math.min(
+              Math.max(0, businessAgi) * QBI_RATE,
+              taxableBeforeQbi * QBI_RATE,
+          )
+        : 0;
 
     const taxableWithBusiness = Math.max(
         0,
