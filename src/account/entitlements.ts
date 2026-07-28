@@ -20,6 +20,7 @@ import {
     type PlanId,
 } from "../config/plans";
 import type { BusinessAccount, SubscriptionTier } from "../models/account";
+import { ENFORCE_PLAN_GATES } from "../config/access";
 
 /**
  * Bridge from the legacy tier names to priced plans.
@@ -92,6 +93,10 @@ export function hasCapability(
     account: BusinessAccount | null | undefined,
     capability: GatedCapability,
 ): boolean {
+    // Temporarily open while the beta runs. See the note in
+    // src/config/access.ts - this is the only line that needs changing back.
+    if (!ENFORCE_PLAN_GATES) return true;
+
     return planCovers(resolvePlan(account), GATED_CAPABILITIES[capability]);
 }
 

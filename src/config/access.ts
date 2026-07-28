@@ -24,3 +24,24 @@
  * subscription, which is a data-loss bug independent of who can open the page.
  */
 export const ENFORCE_INTERNAL_ONLY = false;
+
+/**
+ * TEMPORARY: whether plan entitlements are enforced.
+ *
+ * Currently `false`, so every gated capability is available to every account.
+ *
+ * Why it is off: every beta account is `mvp`/`trial`, which resolves to Pro,
+ * while Advanced P&L is a Business-tier capability. Switching the gate on took
+ * quarter and year comparisons, the six-month trend and CSV export away from
+ * people who were already using them. Launching a paid tier is one thing;
+ * removing working features from beta users mid-beta is another, and the second
+ * is not something to do by side effect of shipping the entitlement layer.
+ *
+ * Turning this back to `true` is the entire re-enable. `resolvePlan`,
+ * `GATED_CAPABILITIES`, the locked-state UI and the upgrade prompts all stay
+ * wired and exercised; this only short-circuits the final check. Flip it when
+ * billing is real and there is something to actually upgrade to.
+ *
+ * Tracked in issue #35.
+ */
+export const ENFORCE_PLAN_GATES = false;
