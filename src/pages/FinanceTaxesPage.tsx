@@ -14,13 +14,14 @@ import { Button } from "../components/ui/button";
 import { Lock } from "lucide-react";
 import { useAccount } from "../account/AccountContext";
 import { useAnalyticsSnapshot } from "../hooks/useAnalyticsSnapshot";
-import { saveTaxProfile } from "../services/accounts";
+import { saveTaxFigures, saveTaxProfile } from "../services/accounts";
 import { TaxProfileDialog } from "../components/finance/TaxProfileDialog";
 import { Contractor1099Panel } from "../components/finance/Contractor1099Panel";
 import { UpgradePrompt } from "../components/finance/UpgradePrompt";
 import { hasCapability } from "../account/entitlements";
 import {
     estimateTax,
+    defaultTaxFigures,
     isTaxProfileConfigured,
     TAX_YEAR,
     type TaxProfile,
@@ -133,9 +134,35 @@ export default function FinanceTaxesPage() {
     // than inventing a filing status.
     const taxProfile = (account?.taxProfile ?? null) as TaxProfile | null;
     const taxConfigured = isTaxProfileConfigured(taxProfile);
+
+    // Statutory figures: the owner's confirmed set if there is one, otherwise
+    // the shipped defaults. Those defaults were transcribed by hand rather than
+    // taken from an IRS feed, so an estimate built on them is labelled
+    // unverified until a person records that they have checked them.
+    const storedFigures = account?.taxFigures ?? null;
+    const figures = useMemo(
+        () =>
+            storedFigures
+                ? {
+                      taxYear: storedFigures.taxYear,
+                      standardDeduction: storedFigures.standardDeduction,
+                      brackets: storedFigures.brackets,
+                      ssWageBase: storedFigures.ssWageBase,
+                      qbiThreshold: storedFigures.qbiThreshold,
+                      addlMedicareThreshold: storedFigures.addlMedicareThreshold,
+                  }
+                : defaultTaxFigures(
+                      taxProfile?.filingStatus ?? "single",
+                  ),
+        [storedFigures, taxProfile?.filingStatus],
+    );
+    const figuresVerified = Boolean(storedFigures?.verifiedAt);
     const tax = useMemo(
-        () => (taxConfigured ? estimateTax(data.netProfit, taxProfile) : null),
-        [taxConfigured, taxProfile, data.netProfit],
+        () =>
+            taxConfigured
+                ? estimateTax(data.netProfit, taxProfile, figures)
+                : null,
+        [taxConfigured, taxProfile, data.netProfit, figures],
     );
 
     // These cards are labelled as planned surfaces, not downloads. Their period
@@ -317,6 +344,34 @@ export default function FinanceTaxesPage() {
                             {taxConfigured ? "Edit settings" : "Set up estimate"}
                         </Button>
                     </div>
+
+                    {/* The figures are shipped defaults, transcribed by hand
+                        rather than pulled from an IRS feed. Saying so is the
+                        honest position: an owner reserving money against this
+                        should know whether a person has checked the tables, and
+                        can correct them if not. */}
+                    {taxConfigured && !figuresVerified && (
+                        <div className="mb-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                            <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
+                            <span>
+                                <span className="font-semibold">
+                                    Using unverified {figures.taxYear} tax figures.
+                                </span>{" "}
+                                Menumo ships standard federal brackets and
+                                deductions as a starting point, but nobody has
+                                confirmed them for your return yet. Check them
+                                against the IRS tables, or ask your accountant,
+                                before you rely on this number.{" "}
+                                <button
+                                    type="button"
+                                    onClick={() => setTaxDialogOpen(true)}
+                                    className="font-semibold underline underline-offset-2"
+                                >
+                                    Review the figures
+                                </button>
+                            </span>
+                        </div>
+                    )}
 
                     {tax ? (
                         <div className="grid gap-4 md:grid-cols-4">
@@ -677,13 +732,20 @@ export default function FinanceTaxesPage() {
             <TaxProfileDialog
                 open={taxDialogOpen}
                 initial={taxProfile}
+                figures={figures}
+                verified={figuresVerified}
                 saving={savingTax}
                 onClose={() => !savingTax && setTaxDialogOpen(false)}
-                onSave={async (profile) => {
+                onSave={async (profile, nextFigures) => {
                     if (!accountId) return;
                     setSavingTax(true);
                     try {
                         await saveTaxProfile(accountId, profile);
+                        // Only written when the owner ticked the confirmation,
+                        // so verifiedAt always means a person actually checked.
+                        if (nextFigures) {
+                            await saveTaxFigures(accountId, nextFigures);
+                        }
                         setTaxDialogOpen(false);
                         setToast("Tax settings saved");
                         setTimeout(() => setToast(null), 3000);

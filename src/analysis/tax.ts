@@ -61,6 +61,37 @@ export const FILING_STATUS_LABELS: Record<FilingStatus, string> = {
 
 export const TAX_YEAR = 2025;
 
+/**
+ * The statutory figures the estimate depends on.
+ *
+ * These ship as defaults so the page works out of the box, but they are treated
+ * as UNVERIFIED until a human confirms them: the values below were transcribed
+ * by hand, not pulled from an IRS feed, and a wrong digit in a tax calculator is
+ * worse than no calculator. The owner (or their accountant) can see every figure
+ * in use and correct it, which puts the numbers in the hands of the person who
+ * can actually check them against Rev. Proc. 2024-40 and Schedule SE.
+ */
+export interface TaxFigures {
+    taxYear: number;
+    standardDeduction: number;
+    brackets: Bracket[];
+    ssWageBase: number;
+    qbiThreshold: number;
+    addlMedicareThreshold: number;
+}
+
+/** Shipped defaults for a filing status. Starting point, not gospel. */
+export function defaultTaxFigures(filingStatus: FilingStatus): TaxFigures {
+    return {
+        taxYear: TAX_YEAR,
+        standardDeduction: STANDARD_DEDUCTION[filingStatus],
+        brackets: BRACKETS[filingStatus].map((b) => ({ ...b })),
+        ssWageBase: SS_WAGE_BASE,
+        qbiThreshold: QBI_THRESHOLD[filingStatus],
+        addlMedicareThreshold: ADDL_MEDICARE_THRESHOLD[filingStatus],
+    };
+}
+
 /** Social Security wage base. Above this, only Medicare applies. */
 const SS_WAGE_BASE = 176_100;
 const SS_RATE = 0.124;
@@ -81,7 +112,7 @@ const STANDARD_DEDUCTION: Record<FilingStatus, number> = {
     head_of_household: 22_500,
 };
 
-interface Bracket {
+export interface Bracket {
     upTo: number;
     rate: number;
 }
@@ -176,17 +207,18 @@ function taxFromBrackets(amount: number, brackets: Bracket[]): number {
 function computeSelfEmploymentTax(
     netProfit: number,
     profile: TaxProfile,
+    figures: TaxFigures,
 ): { seTax: number; deductible: number } {
     if (netProfit <= 0) return { seTax: 0, deductible: 0 };
 
     const seBase = netProfit * SE_TAXABLE_SHARE;
 
-    const socialSecurity = Math.min(seBase, SS_WAGE_BASE) * SS_RATE;
+    const socialSecurity = Math.min(seBase, figures.ssWageBase) * SS_RATE;
     const medicare = seBase * MEDICARE_RATE;
 
     // Additional Medicare applies to combined earnings over the threshold.
     const combined = seBase + profile.otherHouseholdIncome;
-    const threshold = ADDL_MEDICARE_THRESHOLD[profile.filingStatus];
+    const threshold = figures.addlMedicareThreshold;
     const additionalMedicare =
         combined > threshold
             ? Math.min(seBase, combined - threshold) * ADDL_MEDICARE_RATE
@@ -212,13 +244,18 @@ function computeSelfEmploymentTax(
 export function estimateTax(
     netProfit: number,
     profile: TaxProfile = DEFAULT_TAX_PROFILE,
+    figures: TaxFigures = defaultTaxFigures(profile.filingStatus),
 ): TaxEstimate {
     if (netProfit <= 0) return ZERO_ESTIMATE;
 
-    const { seTax, deductible } = computeSelfEmploymentTax(netProfit, profile);
+    const { seTax, deductible } = computeSelfEmploymentTax(
+        netProfit,
+        profile,
+        figures,
+    );
 
-    const brackets = BRACKETS[profile.filingStatus];
-    const standardDeduction = STANDARD_DEDUCTION[profile.filingStatus];
+    const brackets = figures.brackets;
+    const standardDeduction = figures.standardDeduction;
     const other = Math.max(0, profile.otherHouseholdIncome);
 
     // QBI: 20% of business income, only below the phase-in threshold. Above it
@@ -226,7 +263,7 @@ export function estimateTax(
     // the deduction rather than overstate it.
     const businessAgi = netProfit - deductible;
     const qbiEligible =
-        businessAgi + other <= QBI_THRESHOLD[profile.filingStatus];
+        businessAgi + other <= figures.qbiThreshold;
 
     // The deduction is the LESSER of 20% of qualified business income and 20%
     // of taxable income figured before it (IRC 199A(a)). Missing that second

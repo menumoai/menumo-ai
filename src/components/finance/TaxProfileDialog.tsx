@@ -17,7 +17,7 @@ import {
 import {
     DEFAULT_TAX_PROFILE,
     FILING_STATUS_LABELS,
-    TAX_YEAR,
+    type TaxFigures,
     type FilingStatus,
     type TaxProfile,
 } from "../../analysis/tax";
@@ -25,14 +25,21 @@ import {
 interface Props {
     open: boolean;
     initial: TaxProfile | null;
+    /** Figures currently driving the estimate: the owner's, or our defaults. */
+    figures: TaxFigures;
+    /** True once a person has recorded that they checked the figures. */
+    verified: boolean;
     saving: boolean;
     onClose: () => void;
-    onSave: (profile: TaxProfile) => void;
+    /** `figures` is null when the owner did not confirm them this time. */
+    onSave: (profile: TaxProfile, figures: TaxFigures | null) => void;
 }
 
 export function TaxProfileDialog({
     open,
     initial,
+    figures,
+    verified,
     saving,
     onClose,
     onSave,
@@ -50,6 +57,8 @@ export function TaxProfileDialog({
                     saving={saving}
                     onClose={onClose}
                     onSave={onSave}
+                    figures={figures}
+                    verified={verified}
                 />
             </DialogContent>
         </Dialog>
@@ -61,10 +70,30 @@ function TaxProfileForm({
     saving,
     onClose,
     onSave,
+    figures,
+    verified,
 }: Omit<Props, "open">) {
     const [filingStatus, setFilingStatus] = useState<FilingStatus>(
         initial?.filingStatus ?? DEFAULT_TAX_PROFILE.filingStatus,
     );
+    const [standardDeduction, setStandardDeduction] = useState(
+        String(figures.standardDeduction),
+    );
+    const [ssWageBase, setSsWageBase] = useState(String(figures.ssWageBase));
+    const [brackets, setBrackets] = useState(() =>
+        figures.brackets.map((b) => ({ ...b })),
+    );
+    const [confirmed, setConfirmed] = useState(verified);
+
+    const updateBracket = (index: number, raw: string) => {
+        const parsed = Number.parseFloat(raw.replace(/[^0-9.]/g, ""));
+        setBrackets((prev) =>
+            prev.map((b, i) =>
+                i === index && Number.isFinite(parsed) ? { ...b, upTo: parsed } : b,
+            ),
+        );
+    };
+
     const [stateRate, setStateRate] = useState(
         String(initial?.stateEffectiveRatePct ?? ""),
     );
@@ -90,11 +119,26 @@ function TaxProfileForm({
             setError("Other household income should be 0 or more.");
             return;
         }
+        const parsedDeduction = Number.parseFloat(standardDeduction);
+        const parsedWageBase = Number.parseFloat(ssWageBase);
+        const nextFigures: TaxFigures | null = confirmed
+            ? {
+                  ...figures,
+                  standardDeduction: Number.isFinite(parsedDeduction)
+                      ? parsedDeduction
+                      : figures.standardDeduction,
+                  ssWageBase: Number.isFinite(parsedWageBase)
+                      ? parsedWageBase
+                      : figures.ssWageBase,
+                  brackets,
+              }
+            : null;
+
         onSave({
             filingStatus,
             stateEffectiveRatePct: parsedRate,
             otherHouseholdIncome: parsedOther,
-        });
+        }, nextFigures);
     }
 
     return (
@@ -198,11 +242,103 @@ function TaxProfileForm({
                         </p>
                     )}
 
+                    {/* The statutory figures, on show and editable. Menumo's
+                        defaults were transcribed by hand, not taken from an IRS
+                        feed, so the person who can actually check them needs to
+                        see them and be able to correct them. Confirming stamps
+                        verifiedAt, which is what clears the warning on the page. */}
+                    <details className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                        <summary className="cursor-pointer text-xs font-semibold text-gray-700">
+                            Tax year {figures.taxYear} figures{" "}
+                            {verified ? (
+                                <span className="font-normal text-teal-700">
+                                    · confirmed
+                                </span>
+                            ) : (
+                                <span className="font-normal text-amber-700">
+                                    · not yet confirmed
+                                </span>
+                            )}
+                        </summary>
+
+                        <p className="mt-2 text-xs text-gray-600">
+                            These drive the estimate. We ship standard federal
+                            figures as a starting point, but we have not verified
+                            them for your return. Check them against the IRS
+                            tables for your filing status and correct anything
+                            that is wrong.
+                        </p>
+
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                            <label className="text-xs font-medium text-gray-600">
+                                Standard deduction
+                                <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={standardDeduction}
+                                    onChange={(e) => setStandardDeduction(e.target.value)}
+                                    className="mt-1 w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-gray-900"
+                                />
+                            </label>
+                            <label className="text-xs font-medium text-gray-600">
+                                Social Security wage base
+                                <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={ssWageBase}
+                                    onChange={(e) => setSsWageBase(e.target.value)}
+                                    className="mt-1 w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-gray-900"
+                                />
+                            </label>
+                        </div>
+
+                        <div className="mt-3">
+                            <p className="text-xs font-medium text-gray-600">
+                                Income tax brackets
+                            </p>
+                            <div className="mt-1 space-y-1">
+                                {brackets.map((b, i) => (
+                                    <div key={i} className="flex items-center gap-2">
+                                        <span className="w-10 text-right font-mono text-xs tabular-nums text-gray-500">
+                                            {Math.round(b.rate * 100)}%
+                                        </span>
+                                        <span className="text-xs text-gray-500">up to</span>
+                                        <input
+                                            type="text"
+                                            inputMode="decimal"
+                                            value={
+                                                Number.isFinite(b.upTo)
+                                                    ? String(b.upTo)
+                                                    : "no limit"
+                                            }
+                                            disabled={!Number.isFinite(b.upTo)}
+                                            onChange={(e) => updateBracket(i, e.target.value)}
+                                            className="w-32 rounded-lg border border-gray-300 px-2 py-1 text-xs tabular-nums text-gray-900 disabled:bg-gray-100 disabled:text-gray-400"
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <label className="mt-3 flex items-start gap-2 text-xs text-gray-700">
+                            <input
+                                type="checkbox"
+                                checked={confirmed}
+                                onChange={(e) => setConfirmed(e.target.checked)}
+                                className="mt-0.5"
+                            />
+                            <span>
+                                I have checked these figures against the IRS tables
+                                for tax year {figures.taxYear}.
+                            </span>
+                        </label>
+                    </details>
+
                     <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
                         Estimates federal self-employment tax, income tax and the QBI
-                        deduction using tax year {TAX_YEAR} figures, for a sole
-                        proprietor or single-member LLC. It is a set-aside guide, not
-                        tax advice, and it does not replace your accountant.
+                        deduction for a sole proprietor or single-member LLC. It is a
+                        set-aside guide, not tax advice, and it does not replace your
+                        accountant.
                     </p>
                 </div>
 
