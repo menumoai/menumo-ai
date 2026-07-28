@@ -185,7 +185,7 @@ export function DashboardLayout({
     const navItems = [
         { path: "/dashboard", label: "Dashboard", icon: Home },
         { path: "/analytics/revenue", label: "Analytics", icon: BarChart3 },
-        { path: "/finance", label: "Finance", icon: Receipt },
+        { path: "/finance", label: "Finances and Taxes", icon: Receipt },
         { path: "/orders", label: "Orders", icon: UtensilsCrossed },
         { path: "/menu", label: "Menu", icon: ChefHat },
         { path: "/inventory", label: "Inventory", icon: Boxes },
@@ -281,8 +281,13 @@ export function DashboardLayout({
             </header>
 
             <div className="relative flex">
+                {/* Sticky under the 4rem header so nav is always reachable
+                    without scrolling back up. `self-start` matters: this is a
+                    flex child, and the default `align-items: stretch` would
+                    make it full-height, leaving sticky nothing to move within.
+                    Its own overflow-y keeps a long nav usable on short screens. */}
                 <aside
-                    className={`hidden min-h-[calc(100vh-4rem)] border-r border-gray-200 bg-white transition-all duration-300 lg:block ${isSidebarOpen ? "w-64" : "w-20"
+                    className={`sticky top-16 hidden h-[calc(100vh-4rem)] shrink-0 self-start overflow-y-auto border-r border-gray-200 bg-white transition-all duration-300 lg:block ${isSidebarOpen ? "w-64" : "w-20"
                         }`}
                 >
                     <div className="flex justify-end border-b border-gray-200 p-2">

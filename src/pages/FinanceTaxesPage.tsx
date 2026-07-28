@@ -248,7 +248,7 @@ export default function FinanceTaxesPage() {
                                 className="text-3xl font-bold text-gray-900"
                                 style={{ fontFamily: "Poppins, sans-serif" }}
                             >
-                                Finance & Taxes
+                                Finances and Taxes
                             </h1>
                         </div>
                         <p className="text-gray-600">
