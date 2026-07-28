@@ -128,7 +128,9 @@ export function RecordMovementCard({
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="md:col-span-2">
-                    <label className={labelClass}>Product</label>
+                    <label className={labelClass}>
+                        Product<span className="text-red-500" aria-hidden="true"> *</span>
+                    </label>
                     <select
                         className={inputClass}
                         value={selectedProductId}
@@ -164,7 +166,7 @@ export function RecordMovementCard({
 
                 <div>
                     <label className={labelClass}>
-                        Quantity{" "}
+                        Quantity<span className="text-red-500" aria-hidden="true">*</span>{" "}
                         {selectedProduct?.stockUnit
                             ? `(${selectedProduct.stockUnit})`
                             : ""}
@@ -263,8 +265,9 @@ export function RecordMovementCard({
                         </span>
                     </div>
                 ) : (
-                    <div className="text-sm text-gray-400">
-                        Pick a product and quantity to preview the new on-hand count.
+                    <div className="text-sm text-gray-500">
+                        Choose a product and a quantity above zero. Recording is
+                        disabled until both are set.
                     </div>
                 )}
 

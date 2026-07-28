@@ -35,7 +35,7 @@ import {
 } from "../analysis/finance";
 
 const REPORT_ICONS: Record<string, typeof FileText> = {
-    "Monthly P&L Statement": FileText,
+    "P&L Statement": FileText,
     "Sales Tax Summary": Receipt,
     "Expense Breakdown": TrendingDown,
     "Revenue by Location": Calendar,
@@ -165,18 +165,74 @@ export default function FinanceTaxesPage() {
         [taxConfigured, taxProfile, data.netProfit, figures],
     );
 
-    // These cards are labelled as planned surfaces, not downloads. Their period
-    // captions still came from fixtures ("March 2026"), so derive them from the
-    // real computed periods instead of stating a date that is not ours.
-    const availableReports = useMemo(
-        () => [
-            { name: "Monthly P&L Statement", period: periods.month.label },
-            { name: "Sales Tax Summary", period: periods.quarter.label },
-            { name: "Expense Breakdown", period: periods.month.label },
-            { name: "Revenue by Location", period: "Last 30 days" },
-        ],
-        [periods],
-    );
+    // Rows shared by Export All Reports and the per-card downloads, so the two
+    // can never disagree about what a figure is. Built as closures over the
+    // selected period; they run at click time, after render completes.
+    const pnlRows = (): string[][] => [
+        ["Category", "Amount", "% of Revenue"],
+        ["Revenue", `$${data.revenue}`, "100%"],
+        ["Cost of Goods Sold", `$${data.cogs}`, `${pctOfRevenue(data.cogs, data.revenue)}%`],
+        ["Gross Profit", `$${data.grossProfit}`, `${grossMarginPct}%`],
+        ["Operating Expenses", `$${data.operatingExpenses}`, `${pctOfRevenue(data.operatingExpenses, data.revenue)}%`],
+        ["Net Profit", `$${data.netProfit}`, `${netMarginPct}%`],
+        ["Tax set-aside (estimate)", tax ? `$${tax.total}` : "not configured", tax ? `${tax.effectiveRatePct}%` : ""],
+    ];
+
+    const expenseRows = (): string[][] => [
+        ["Expense Detail", "Amount", "% of Revenue"],
+        ...expenses.map((expense) => [
+            expense.category,
+            `$${expense.amount}`,
+            `${expense.pct}%`,
+        ]),
+    ];
+
+    const csvName = (kind: string) =>
+        `menumo-${kind}-${data.label.replace(/\s+/g, "-").toLowerCase()}.csv`;
+
+    const exportWithToast = (kind: string, rows: string[][], message: string) => {
+        exportCSV(csvName(kind), rows);
+        setToast(message);
+        setTimeout(() => setToast(null), 3000);
+    };
+
+    // Report cards: real downloads where the data exists, and a plain statement
+    // of what is missing where it does not. "Not built yet" told users nothing;
+    // "every order currently records $0 tax" tells them exactly why.
+    const availableReports: {
+        name: string;
+        period: string;
+        download?: () => void;
+        missing?: string;
+    }[] = [
+        {
+            name: "P&L Statement",
+            period: data.label,
+            download: () => exportWithToast("pnl", pnlRows(), "P&L exported"),
+        },
+        {
+            name: "Expense Breakdown",
+            period: data.label,
+            download: () =>
+                exportWithToast(
+                    "expenses",
+                    expenseRows(),
+                    "Expense breakdown exported",
+                ),
+        },
+        {
+            name: "Sales Tax Summary",
+            period: periods.quarter.label,
+            missing:
+                "Orders do not record sales tax yet (every order saves $0 tax), so this summary would be an empty claim.",
+        },
+        {
+            name: "Revenue by Location",
+            period: "By pitch",
+            missing:
+                "Orders are not tagged with a location yet, so revenue cannot be split by pitch.",
+        },
+    ];
     const grossMarginPct =
         data.revenue > 0 ? ((data.grossProfit / data.revenue) * 100).toFixed(1) : "0.0";
     const netMarginPct =
@@ -185,26 +241,11 @@ export default function FinanceTaxesPage() {
         monthlyTrend.length > 0 ? Math.max(...monthlyTrend.map((month) => month.revenue)) : 0;
 
     function handleExport() {
-        const rows: string[][] = [
-            ["Category", "Amount", "% of Revenue"],
-            ["Revenue", `$${data.revenue}`, "100%"],
-            ["Cost of Goods Sold", `$${data.cogs}`, `${pctOfRevenue(data.cogs, data.revenue)}%`],
-            ["Gross Profit", `$${data.grossProfit}`, `${grossMarginPct}%`],
-            ["Operating Expenses", `$${data.operatingExpenses}`, `${pctOfRevenue(data.operatingExpenses, data.revenue)}%`],
-            ["Net Profit", `$${data.netProfit}`, `${netMarginPct}%`],
-            ["Tax set-aside (estimate)", tax ? `$${tax.total}` : "not configured", tax ? `${tax.effectiveRatePct}%` : ""],
-            [""],
-            ["Expense Detail", "Amount", "% of Revenue"],
-            ...expenses.map((expense) => [
-                expense.category,
-                `$${expense.amount}`,
-                `${expense.pct}%`,
-            ]),
-        ];
-
-        exportCSV(`menumo-financials-${data.label.replace(/\s+/g, "-")}.csv`, rows);
-        setToast("Financial report exported");
-        setTimeout(() => setToast(null), 3000);
+        exportWithToast(
+            "financials",
+            [...pnlRows(), [""], ...expenseRows()],
+            "Financial report exported",
+        );
     }
 
     if (loading) {
@@ -703,7 +744,7 @@ export default function FinanceTaxesPage() {
                                 Available Reports
                             </h3>
                             <p className="mt-1 text-sm text-gray-500">
-                                Report exports are not built yet. Use Export All Reports above for a CSV of this P&L.
+                                P&L and expense breakdowns download as CSV for the selected period. The greyed cards say exactly what data they are waiting on.
                             </p>
                         </div>
                     </div>
@@ -715,13 +756,29 @@ export default function FinanceTaxesPage() {
                             return (
                                 <div
                                     key={report.name}
-                                    className="rounded-xl border border-gray-100 bg-gray-50 p-4"
+                                    className={`rounded-xl border border-gray-100 p-4 ${report.download ? "bg-white shadow-sm" : "bg-gray-50"
+                                        }`}
                                 >
-                                    <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-white">
+                                    <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${report.download ? "bg-teal-50" : "bg-white"
+                                        }`}>
                                         <Icon className="h-5 w-5 text-teal-600" />
                                     </div>
                                     <div className="font-semibold text-gray-900">{report.name}</div>
                                     <div className="mt-1 text-sm text-gray-500">{report.period}</div>
+                                    {report.download ? (
+                                        <button
+                                            type="button"
+                                            onClick={report.download}
+                                            className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-teal-700 transition hover:text-teal-900"
+                                        >
+                                            <Download className="h-4 w-4" />
+                                            Download CSV
+                                        </button>
+                                    ) : (
+                                        <p className="mt-3 text-xs leading-relaxed text-gray-500">
+                                            {report.missing}
+                                        </p>
+                                    )}
                                 </div>
                             );
                         })}
