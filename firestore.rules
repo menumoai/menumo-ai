@@ -123,7 +123,16 @@ service cloud.firestore {
         // 2. Default for all subcollections
         // ============================
         // (users, locations, expenses, campaigns, etc.)
-        match /accounts/{accountId}/{document=**} {
+        //
+        // The `{collection}` segment is load-bearing, not tidiness. Under
+        // rules_version 2 a recursive wildcard matches ZERO or more segments, so
+        // the obvious `/accounts/{accountId}/{document=**}` also matches the
+        // account document itself - and because Firestore allows a request when
+        // ANY rule allows it, that blanket `write` silently overrode every
+        // restriction in section 1 above. Requiring a collection segment keeps
+        // this rule to genuine subcollections and leaves the account doc to the
+        // rules that actually guard it.
+        match /accounts/{accountId}/{collection}/{document=**} {
             allow read, write: if canAdminister(accountId);
         }
 
