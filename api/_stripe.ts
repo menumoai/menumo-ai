@@ -3,9 +3,17 @@
 // Shared Stripe wiring for the subscription endpoints. Vercel does not route
 // files under `api/` whose names begin with an underscore, so this is a library
 // rather than an endpoint.
+//
+// NOTE on the `.js` in the relative imports below, and in every other file under
+// `api/`: Vercel compiles these to ESM one file at a time without bundling, and
+// the package is `"type": "module"`, so at runtime Node's ESM resolver demands an
+// explicit extension. Extension-less specifiers typecheck and work fine under
+// Vite, then fail only once deployed, with ERR_MODULE_NOT_FOUND. TypeScript maps
+// a `.js` specifier back to the `.ts` source, so writing it this way costs
+// nothing and is the only form that works in both places.
 
 import Stripe from "stripe";
-import { isPlanId, type PlanId } from "../src/config/plans";
+import { isPlanId, type PlanId } from "../src/config/plans.js";
 import type { SubscriptionStatus } from "../src/models/account";
 
 /**

@@ -10,9 +10,9 @@
 // and `accountId` is only ever a string in a request body.
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getStripe } from "./_stripe";
-import { HttpError, adminDb, requireAccountAccess } from "./_firebaseAdmin";
-import { asBody, resolveBaseUrl } from "./_http";
+import { getStripe } from "./_stripe.js";
+import { HttpError, adminDb, requireAccountAccess } from "./_firebaseAdmin.js";
+import { asBody, resolveBaseUrl } from "./_http.js";
 
 export interface PortalSessionParams {
     authorization: string | undefined;
