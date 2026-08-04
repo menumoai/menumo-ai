@@ -5,10 +5,10 @@
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import type { Timestamp } from "firebase-admin/firestore";
-import { TRIAL_DAYS, isPlanId, type PlanId } from "../src/config/plans";
-import { getStripe, integrationIdentifier, priceForPlan } from "./_stripe";
-import { HttpError, adminDb, requireAccountAccess } from "./_firebaseAdmin";
-import { asBody, resolveBaseUrl } from "./_http";
+import { TRIAL_DAYS, isPlanId, type PlanId } from "../src/config/plans.js";
+import { getStripe, integrationIdentifier, priceForPlan } from "./_stripe.js";
+import { HttpError, adminDb, requireAccountAccess } from "./_firebaseAdmin.js";
+import { asBody, resolveBaseUrl } from "./_http.js";
 
 export interface CheckoutSessionParams {
     /** Raw Authorization header. The caller is not trusted until this verifies. */

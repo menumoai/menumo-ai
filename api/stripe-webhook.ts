@@ -9,8 +9,8 @@ import type { IncomingMessage } from "node:http";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import type Stripe from "stripe";
-import { getStripe, planIdFromPrice, toAccountStatus } from "./_stripe";
-import { adminDb } from "./_firebaseAdmin";
+import { getStripe, planIdFromPrice, toAccountStatus } from "./_stripe.js";
+import { adminDb } from "./_firebaseAdmin.js";
 
 /**
  * Vercel parses JSON request bodies by default, which would discard the exact
