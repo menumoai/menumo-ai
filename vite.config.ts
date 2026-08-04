@@ -3,6 +3,12 @@ import type { Connect, PluginOption } from 'vite'
 import react from '@vitejs/plugin-react'
 import { generateCompanionSuggestions } from './api/companion'
 import { extractReceipt, isSupportedMediaType } from './api/ocr'
+import { isPlanId } from './src/config/plans'
+import { HttpError } from './api/_firebaseAdmin'
+import { resolveBaseUrl } from './api/_http'
+import { createCheckoutSession } from './api/create-checkout-session'
+import { createPortalSession } from './api/create-portal-session'
+import { processWebhook, readRawBody } from './api/stripe-webhook'
 
 // Dev-only shim: Vite's dev server does not run files under `api/`, so without
 // this `npm run dev` would never hit the companion endpoint. This middleware
@@ -121,6 +127,123 @@ async function handleOcr(
   }
 }
 
+// Dev-only shims for the three subscription endpoints, mirroring the Vercel
+// functions in `api/`. Each delegates to the same exported function the
+// production handler calls, so the only thing duplicated here is request
+// plumbing.
+function subscriptionDevApi(): PluginOption {
+  return {
+    name: 'subscription-dev-api',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use(
+        '/api/create-checkout-session',
+        (req: Connect.IncomingMessage, res) => {
+          void handleCheckout(req, res)
+        },
+      )
+      server.middlewares.use(
+        '/api/create-portal-session',
+        (req: Connect.IncomingMessage, res) => {
+          void handlePortal(req, res)
+        },
+      )
+      server.middlewares.use(
+        '/api/stripe-webhook',
+        (req: Connect.IncomingMessage, res) => {
+          void handleWebhook(req, res)
+        },
+      )
+    },
+  }
+}
+
+function sendHttpError(
+  res: Parameters<Connect.NextHandleFunction>[1],
+  error: unknown,
+  fallback: string,
+) {
+  if (error instanceof HttpError) {
+    sendJson(res, error.status, { error: error.message })
+    return
+  }
+  console.error(fallback, error)
+  sendJson(res, 500, { error: fallback })
+}
+
+async function handleCheckout(
+  req: Connect.IncomingMessage,
+  res: Parameters<Connect.NextHandleFunction>[1],
+): Promise<void> {
+  if (req.method !== 'POST') {
+    sendJson(res, 405, { error: 'Method not allowed' })
+    return
+  }
+
+  try {
+    const body = (await readJsonBody(req)) ?? {}
+    const accountId = typeof body.accountId === 'string' ? body.accountId : ''
+    const planId: unknown = body.planId
+
+    if (!isPlanId(planId)) {
+      sendJson(res, 400, { error: 'Unknown plan.' })
+      return
+    }
+
+    const url = await createCheckoutSession({
+      authorization: req.headers.authorization,
+      accountId,
+      planId,
+      baseUrl: resolveBaseUrl(req.headers.origin),
+    })
+    sendJson(res, 200, { url })
+  } catch (error) {
+    sendHttpError(res, error, 'Could not start checkout.')
+  }
+}
+
+async function handlePortal(
+  req: Connect.IncomingMessage,
+  res: Parameters<Connect.NextHandleFunction>[1],
+): Promise<void> {
+  if (req.method !== 'POST') {
+    sendJson(res, 405, { error: 'Method not allowed' })
+    return
+  }
+
+  try {
+    const body = (await readJsonBody(req)) ?? {}
+    const url = await createPortalSession({
+      authorization: req.headers.authorization,
+      accountId: typeof body.accountId === 'string' ? body.accountId : '',
+      baseUrl: resolveBaseUrl(req.headers.origin),
+    })
+    sendJson(res, 200, { url })
+  } catch (error) {
+    sendHttpError(res, error, 'Could not open billing settings.')
+  }
+}
+
+// Reads the body as raw bytes rather than JSON. Stripe signs the exact payload,
+// so parsing it first - as the other two shims do - would break every signature.
+async function handleWebhook(
+  req: Connect.IncomingMessage,
+  res: Parameters<Connect.NextHandleFunction>[1],
+): Promise<void> {
+  if (req.method !== 'POST') {
+    sendJson(res, 405, { error: 'Method not allowed' })
+    return
+  }
+
+  const signature = req.headers['stripe-signature']
+  const result = await processWebhook(
+    await readRawBody(req),
+    typeof signature === 'string' ? signature : undefined,
+    process.env.STRIPE_WEBHOOK_SECRET,
+  )
+  sendJson(res, result.status, result.body)
+}
+
 function readJsonBody(
   req: Connect.IncomingMessage,
 ): Promise<Record<string, unknown> | null> {
@@ -140,17 +263,45 @@ function readJsonBody(
   })
 }
 
+/**
+ * The `api/` modules read their secrets from `process.env` directly so the same
+ * code runs unchanged on Vercel. `loadEnv` reads .env files without touching
+ * `process.env`, so dev needs this bridge. Existing shell values win, which
+ * keeps `stripe listen`'s exported webhook secret authoritative over a stale
+ * one in .env.local.
+ */
+function applyServerEnv(env: Record<string, string>) {
+  const serverKeys = [
+    'STRIPE_SECRET_KEY',
+    'STRIPE_WEBHOOK_SECRET',
+    'FIREBASE_SERVICE_ACCOUNT',
+    'FIREBASE_PROJECT_ID',
+    // Read by _firebaseAdmin as the project fallback when running on
+    // Application Default Credentials, which carry no project of their own.
+    'VITE_FIREBASE_PROJECT_ID',
+    'APP_URL',
+  ]
+  for (const key of serverKeys) {
+    if (env[key] && !process.env[key]) {
+      process.env[key] = env[key]
+    }
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   // Third arg '' loads ALL env vars (not just VITE_-prefixed) from .env files,
   // so the server-side ANTHROPIC_API_KEY is available here without being bundled
   // into the client.
   const env = loadEnv(mode, process.cwd(), '')
+  applyServerEnv(env)
+
   return {
     plugins: [
       react(),
       companionDevApi(env.ANTHROPIC_API_KEY ?? ''),
       ocrDevApi(env.ANTHROPIC_API_KEY ?? ''),
+      subscriptionDevApi(),
     ],
   }
 })

@@ -12,6 +12,12 @@
 //   "business". Rather than block gating on a rename plus a data migration,
 //   LEGACY_TIER_TO_PLAN bridges the two. When the rename happens, delete the map
 //   and read the field directly; nothing else here changes.
+//
+//   Stripe sidestepped the mismatch rather than resolving it. Paid accounts
+//   carry `subscription.planId`, which is already a PlanId, so resolvePlan reads
+//   that first and only falls through to the legacy map for accounts that have
+//   never been to checkout. The migration that finally deletes the map is
+//   therefore about back-filling those, not about changing this logic.
 
 import {
     PLANS,
@@ -38,14 +44,32 @@ const LEGACY_TIER_TO_PLAN: Record<SubscriptionTier, PlanId> = {
 /**
  * The plan an account is effectively on right now.
  *
- * A live trial resolves to TRIAL_PLAN regardless of the stored tier: every trial
- * runs at the full toolkit, which is the promise made on /get-started. A lapsed
- * or cancelled subscription falls back to the entry plan rather than locking the
- * account out entirely - losing paid extras is proportionate, losing your own
+ * Stripe wins when it has an opinion. `account.subscription` is written only by
+ * the webhook through the Admin SDK and is denied to clients by Firestore rules,
+ * whereas the legacy fields below have always been client-writable - so the two
+ * are not merely different sources, they are different trust levels. Reading the
+ * legacy fields first would mean a plan anyone could grant themselves from
+ * devtools outranked the one they actually paid for.
+ *
+ * A live trial resolves to TRIAL_PLAN only in the pre-checkout case, where no
+ * plan has been chosen yet and /get-started has promised the full toolkit. Once
+ * a subscription exists the owner has picked a tier, and their trial runs at
+ * that tier rather than being silently upgraded.
+ *
+ * A lapsed or cancelled subscription falls back to the entry plan rather than
+ * locking the account out - losing paid extras is proportionate, losing your own
  * books is not.
  */
 export function resolvePlan(account: BusinessAccount | null | undefined): PlanId {
     if (!account) return "essentials";
+
+    const stripe = account.subscription;
+    if (stripe) {
+        if (stripe.status === "canceled" || stripe.status === "past_due") {
+            return "essentials";
+        }
+        return stripe.planId;
+    }
 
     if (account.subscriptionStatus === "trial") {
         return TRIAL_PLAN;

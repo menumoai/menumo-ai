@@ -1,8 +1,47 @@
 // src/models/account.ts
 import type { Timestamp } from "firebase/firestore";
+import type { PlanId } from "../config/plans";
 
 export type SubscriptionTier = "mvp" | "growth" | "pro" | "custom";
 export type SubscriptionStatus = "trial" | "active" | "past_due" | "canceled";
+
+/**
+ * Subscription state as reported by Stripe.
+ *
+ * Written only by `api/stripe-webhook.ts` through the Admin SDK, which bypasses
+ * Firestore rules; the rules forbid clients from writing this block at all.
+ * That is precisely what makes it safe to gate paid features on, and it is why
+ * this is a separate field rather than a reuse of `subscriptionTier` above -
+ * that one has always been client-writable and stays that way for signup.
+ *
+ * Absent until an account completes checkout for the first time.
+ */
+export interface AccountSubscription {
+    /** The plan Stripe is billing for, from the price's `plan_id` metadata. */
+    planId: PlanId;
+    status: SubscriptionStatus;
+
+    stripeCustomerId: string;
+    stripeSubscriptionId: string;
+    stripePriceId: string;
+
+    /** End of the paid period. Also when a pending cancellation takes effect. */
+    currentPeriodEnd?: Timestamp | null;
+    /** Set while a trial is running, null once it converts or lapses. */
+    trialEndsAt?: Timestamp | null;
+    /** The owner has cancelled, but the period they paid for is still running. */
+    cancelAtPeriodEnd: boolean;
+
+    /**
+     * `created` of the Stripe event that last wrote this block, in epoch
+     * seconds. Stripe redelivers events and does not guarantee ordering, so the
+     * receiver ignores anything older than this. Without it a delayed
+     * `trialing` event can land after `active` and silently downgrade a paying
+     * account.
+     */
+    lastEventAt: number;
+    updatedAt: Timestamp;
+}
 
 export interface BusinessAccount {
   id: string; // Firestore doc ID: /accounts/{id}
@@ -21,10 +60,27 @@ export interface BusinessAccount {
   county?: string;
   country?: string;
 
+  /**
+   * The pre-pricing tier names, still written by `createBusinessAccount` at
+   * signup. `subscription` below supersedes these for anything that gates a
+   * feature - see `resolvePlan` in src/account/entitlements.ts.
+   */
   subscriptionTier: SubscriptionTier;
   subscriptionStatus: SubscriptionStatus;
   subscriptionStartAt?: Timestamp | null;
   subscriptionEndAt?: Timestamp | null;
+
+  /**
+   * The Stripe customer for this business, written server-side the first time
+   * checkout is started. Kept outside `subscription` because a customer exists
+   * from the moment checkout begins, whereas a subscription only exists once it
+   * completes - storing it here is what stops an abandoned checkout minting a
+   * second customer for the same business on the next attempt.
+   */
+  stripeCustomerId?: string | null;
+
+  /** Server-written Stripe state. Absent until the first checkout. */
+  subscription?: AccountSubscription | null;
 
   /**
    * Owner-supplied inputs for the tax set-aside estimate on /finance. Absent

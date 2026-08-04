@@ -20,6 +20,7 @@ import { useAccount } from "../account/AccountContext";
 import { markOnboardingComplete } from "../services/accounts";
 import { LIVE_FEATURES } from "../config/features";
 import { TRIAL_DAYS, TRIAL_PLAN, isPlanId, type PlanId } from "../config/plans";
+import { resolvePlan } from "../account/entitlements";
 import {
     PREVIEW_STEPS,
     useOnboardingProgress,
@@ -72,10 +73,13 @@ export function GetStartedPage() {
     );
     const firstName = greetingFirstName(accountUser, user?.displayName);
 
-    // Only reachable signed out: the signed-in cards render no buttons, because
-    // switching plans needs a billing layer that does not exist yet.
-    const startTrial = (planId: PlanId) => {
-        navigate(`/auth?plan=${planId}&from=get-started`);
+    // Signed out this is a signup funnel; signed in the same click belongs on
+    // /billing, which owns checkout. Sending both from here would duplicate the
+    // Stripe call at a second site for no benefit.
+    const choosePlan = (planId: PlanId) => {
+        navigate(
+            signedIn ? "/billing" : `/auth?plan=${planId}&from=get-started`,
+        );
     };
 
     const scrollTo = (ref: React.RefObject<HTMLDivElement | null>) =>
@@ -125,7 +129,7 @@ export function GetStartedPage() {
                             <div className="mt-6 flex flex-wrap gap-3">
                                 <button
                                     type="button"
-                                    onClick={() => startTrial(highlightPlan)}
+                                    onClick={() => choosePlan(highlightPlan)}
                                     className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#D94C3D] to-[#E67E50] px-6 py-3 text-sm font-semibold text-white shadow-md transition hover:opacity-95"
                                 >
                                     Start free trial
@@ -212,14 +216,14 @@ export function GetStartedPage() {
                     />
                     <PlanCards
                         signedIn={signedIn}
-                        /* Accurate only because every trial runs at one plan.
-                           It cannot be read off the account yet:
-                           BusinessAccount.subscriptionTier is still
-                           "mvp"|"growth"|"pro"|"custom", which does not map to
-                           PlanId. Derive this from the account as part of the
-                           tier rename, or it will quietly show the wrong plan. */
-                        currentPlan={signedIn ? TRIAL_PLAN : null}
-                        onChoose={startTrial}
+                        /* Read off the account rather than assumed. This used to
+                           hardcode TRIAL_PLAN because subscriptionTier's legacy
+                           enum did not map to a PlanId; resolvePlan now handles
+                           that, and prefers the Stripe-written plan when there
+                           is one, so a paying owner sees what they actually pay
+                           for instead of everyone seeing "Pro". */
+                        currentPlan={signedIn ? resolvePlan(account) : null}
+                        onChoose={choosePlan}
                     />
 
                     <div className="mt-4">
