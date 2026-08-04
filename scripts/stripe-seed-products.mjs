@@ -160,10 +160,27 @@ async function syncPlan(plan) {
     return true;
 }
 
+/**
+ * The account label, when the key is allowed to ask for it.
+ *
+ * Retrieving the account needs `accounts_kyc_basic_read`, which a properly
+ * least-privileged restricted key has no reason to carry - and this is only
+ * cosmetic, so refusing to run without it would be the script demanding a
+ * permission it does not need. The mode below is what actually matters, and
+ * that comes from the key prefix.
+ */
+async function accountLabel() {
+    try {
+        const account = await stripe.accounts.retrieve();
+        return account.business_profile?.name ?? account.id;
+    } catch {
+        return "(name not readable with this key)";
+    }
+}
+
 async function main() {
-    const account = await stripe.accounts.retrieve();
     console.log(
-        `Account : ${account.business_profile?.name ?? account.id}\n` +
+        `Account : ${await accountLabel()}\n` +
             `Mode    : ${isLive ? "LIVE" : "TEST"}\n` +
             `Action  : ${APPLY ? "apply changes" : "dry run (pass --apply to write)"}`,
     );
