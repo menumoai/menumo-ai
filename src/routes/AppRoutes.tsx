@@ -13,6 +13,7 @@ import FinanceTaxesPage from "../pages/FinanceTaxesPage";
 import { OrderDetailPage } from "../pages/OrderDetailPage";
 import { BrowseTrucksPage } from "../pages/BrowseTrucksPage";
 import ExpensesPage from "../pages/ExpensesPage";
+import { SubscriptionPricingPage } from "../pages/SubscriptionPricingPage";
 import { DevConsole } from "../pages/DevConsole";
 import { BusinessRoute, InternalRoute } from "./RouteGuards";
 
@@ -102,6 +103,17 @@ export function AppRoutes() {
                 element={
                     <BusinessRoute>
                         <FinanceTaxesPage />
+                    </BusinessRoute>
+                }
+            />
+            {/* Checkout and the Stripe portal both return here, so it has to
+                stay reachable by a signed-in owner whatever state their
+                subscription is in - including lapsed. */}
+            <Route
+                path="/billing"
+                element={
+                    <BusinessRoute>
+                        <SubscriptionPricingPage />
                     </BusinessRoute>
                 }
             />

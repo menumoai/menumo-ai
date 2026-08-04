@@ -1,0 +1,193 @@
+rules_version = '2';
+
+// Mirror of the rules deployed to the `menumo-ai` project, plus the three fixes
+// described below. Checked in so the boundary is reviewable in code review
+// rather than living only in the Firebase console.
+//
+// Changes from what is currently live:
+//   1. Menumo staff can reach the shared demo account, so the Dev Console can
+//      actually read and seed it. Without this the console is dead: it targets
+//      `demo-truck`, and no real user's uid will ever equal that string.
+//   2. Clients can no longer write `isInternal` onto their own profile. That
+//      flag gates internal tooling, and it was self-grantable from devtools by
+//      any signed-in user, which made the /dev guard decorative.
+//   3. Profiles cannot be deleted by clients.
+//   4. Subscription state is server-write-only. The `subscription` block and
+//      `stripeCustomerId` are refused to clients outright, and the legacy
+//      subscriptionTier / subscriptionStatus fields are pinned to their signup
+//      defaults. Before this, any signed-in owner could award themselves the
+//      Business feature set from the devtools console, which made the whole
+//      pricing table advisory.
+//
+// Deliberately NOT changed, so this deploy cannot break the public order form:
+// the `allow write: if true` on customers, orders and lineItems. See the note
+// on that rule below - it is a real hole, but a separate decision.
+
+service cloud.firestore {
+    match /databases/{database}/documents {
+
+        function signedIn() {
+            return request.auth != null;
+        }
+
+        // Each Firebase auth user "owns" /accounts/{uid}.
+        function isOwner(accountId) {
+            return signedIn() && request.auth.uid == accountId;
+        }
+
+        // Menumo staff. Reads the caller's own profile, where `isInternal` can
+        // only have been set out-of-band - no client can write that field, per
+        // the userProfiles rules at the bottom of this file. Granted with
+        // scripts/grant-internal.mjs.
+        function isInternal() {
+            return signedIn()
+                && exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid))
+                && get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.isInternal == true;
+        }
+
+        // The shared practice business the Dev Console seeds. Must stay in step
+        // with DEMO_ACCOUNT_ID in src/config.ts.
+        function isDemoAccount(accountId) {
+            return accountId == 'demo-truck';
+        }
+
+        // Ordered so the common case costs nothing extra: an owner reading
+        // their own account short-circuits before the isInternal() lookup, so
+        // the extra document read is only ever billed on the demo account.
+        function canAdminister(accountId) {
+            return isOwner(accountId)
+                || (isDemoAccount(accountId) && isInternal());
+        }
+
+        // ============================
+        // 1. Account docs
+        // ============================
+
+        // Fields the server owns outright.
+        //
+        // `subscription` is what resolvePlan trusts to decide which features an
+        // account has paid for, and `stripeCustomerId` is the customer a portal
+        // session gets issued against. A client able to write the first could
+        // grant itself any plan; a client able to write the second could aim
+        // its billing portal at another business's invoices. Both are written
+        // only by api/stripe-webhook.ts and api/create-checkout-session.ts
+        // through the Admin SDK, which bypasses these rules entirely - that is
+        // what lets this be a flat no rather than a shape check.
+        function serverOwnedFields() {
+            return ['subscription', 'stripeCustomerId'];
+        }
+
+        function declaresServerOwned() {
+            return request.resource.data.keys().hasAny(serverOwnedFields());
+        }
+
+        function changesServerOwned() {
+            return request.resource.data.diff(resource.data)
+                       .affectedKeys().hasAny(serverOwnedFields());
+        }
+
+        // The legacy plan fields. createBusinessAccount writes exactly 'mvp'
+        // and 'trial' at signup and nothing else ever writes them from a
+        // client, so pinning them costs the app nothing - and without the pin
+        // an owner could set subscriptionTier to 'custom' from devtools and
+        // LEGACY_TIER_TO_PLAN would hand them the whole Business feature set.
+        function tierIsSignupDefault() {
+            return request.resource.data.subscriptionTier == 'mvp'
+                && request.resource.data.subscriptionStatus == 'trial';
+        }
+
+        function tierUntouched() {
+            return !request.resource.data.diff(resource.data)
+                        .affectedKeys()
+                        .hasAny(['subscriptionTier', 'subscriptionStatus']);
+        }
+
+        match /accounts/{accountId} {
+            allow read: if canAdminister(accountId);
+
+            allow create: if canAdminister(accountId)
+                          && !declaresServerOwned()
+                          && tierIsSignupDefault();
+
+            // Staff keep the tier write so the Dev Console can reset the demo
+            // account to its defaults; canAdminister already confines that
+            // path to demo-truck.
+            allow update: if canAdminister(accountId)
+                          && !changesServerOwned()
+                          && (tierUntouched() || isInternal());
+
+            allow delete: if canAdminister(accountId);
+        }
+
+        // ============================
+        // 2. Default for all subcollections
+        // ============================
+        // (users, locations, expenses, campaigns, etc.)
+        match /accounts/{accountId}/{document=**} {
+            allow read, write: if canAdminister(accountId);
+        }
+
+        // ============================
+        // 3. Public menu
+        // ============================
+        match /accounts/{accountId}/products/{productId} {
+            // Anyone can read products, for the customer order form.
+            allow read: if true;
+
+            allow write: if canAdminister(accountId);
+        }
+
+        // ============================
+        // 4. Public customer + order creation
+        // ============================
+        // NOTE: the `allow write: if true` rules below let anyone on the
+        // internet, signed in or not, create and overwrite customers and orders
+        // on ANY account. That is how the unauthenticated /order-form works
+        // today, so tightening it is a product change rather than a rules
+        // tidy-up, and is left alone here on purpose. It should not stay this
+        // way - the usual fix is a create-only rule with shape validation.
+        match /accounts/{accountId}/customers/{customerId} {
+            allow read: if canAdminister(accountId);
+            allow write: if true;
+        }
+
+        match /accounts/{accountId}/orders/{orderId} {
+            allow read: if canAdminister(accountId);
+            allow write: if true;
+        }
+
+        match /accounts/{accountId}/orders/{orderId}/lineItems/{lineItemId} {
+            allow read: if canAdminister(accountId);
+            allow write: if true;
+        }
+
+        // ============================
+        // 5. Public truck locations (browse trucks)
+        // ============================
+        match /publicTruckLocations/{locationId} {
+            allow read: if true;
+            allow write: if signedIn();
+        }
+
+        // ============================
+        // 6. User profiles
+        // ============================
+        match /userProfiles/{uid} {
+            allow read: if signedIn() && request.auth.uid == uid;
+
+            // A client may create and maintain its own profile, but may never
+            // introduce or alter `isInternal`. That is what makes staff access
+            // a real boundary instead of an honour system: the only way to get
+            // the flag is a write that bypasses these rules entirely.
+            allow create: if signedIn()
+                          && request.auth.uid == uid
+                          && !('isInternal' in request.resource.data);
+
+            allow update: if signedIn()
+                          && request.auth.uid == uid
+                          && !('isInternal' in request.resource.data.diff(resource.data).affectedKeys());
+
+            allow delete: if false;
+        }
+    }
+}

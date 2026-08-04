@@ -20,6 +20,7 @@ import {
     MapPin,
     Boxes,
     Rocket,
+    CreditCard,
 } from "lucide-react";
 import { useOnboardingProgress } from "../hooks/useOnboardingProgress";
 import { ENFORCE_INTERNAL_ONLY } from "../config/access";
@@ -78,6 +79,7 @@ export function DashboardLayout({
         { path: "/inventory", label: "Inventory", icon: Boxes },
         { path: "/expenses", label: "Expenses", icon: DollarSign },
         { path: "/locations", label: "Locations", icon: MapPin },
+        { path: "/billing", label: "Plan and Billing", icon: CreditCard },
         // Internal tooling. Hidden from customers entirely rather than shown
         // and then blocked - a menu item you cannot use is just confusing.
         // Temporarily visible to everyone while isInternal cannot be granted;

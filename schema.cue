@@ -55,10 +55,41 @@ package servedup
     county?:          string
     country?:         string
 
+    // The pre-pricing tier names. Still written at signup, but `subscription`
+    // below is what gates features once an account has paid.
     subscriptionTier: *"mvp" | "growth" | "pro" | "custom"
     subscriptionStatus: *"trial" | "active" | "past_due" | "canceled"
     subscriptionStartAt?: #Timestamp
     subscriptionEndAt?:   #Timestamp
+
+    // The Stripe customer for this business, written server-side when checkout
+    // first starts. Outside `subscription` because a customer exists as soon as
+    // checkout begins, while a subscription only exists once it completes.
+    stripeCustomerId?: string
+
+    // Stripe subscription state. Written only by the webhook through the Admin
+    // SDK - Firestore rules forbid clients writing this block, which is what
+    // makes it safe to gate paid features on. Absent until the first checkout.
+    subscription?: {
+        // Matches PlanId in src/config/plans.ts, taken from the Stripe price's
+        // `plan_id` metadata rather than from any client input.
+        planId:               "essentials" | "pro" | "business"
+        status:               "trial" | "active" | "past_due" | "canceled"
+
+        stripeCustomerId:     string
+        stripeSubscriptionId: string
+        stripePriceId:        string
+
+        currentPeriodEnd?:    #Timestamp
+        trialEndsAt?:         #Timestamp
+        cancelAtPeriodEnd:    bool
+
+        // `created` of the Stripe event that last wrote this block, in epoch
+        // seconds. Stripe does not guarantee event ordering, so the receiver
+        // drops anything older than this.
+        lastEventAt:          number
+        updatedAt:            #Timestamp
+    }
 
     // Owner-supplied inputs for the /finance tax set-aside estimate.
     taxProfile?: {

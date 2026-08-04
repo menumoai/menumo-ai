@@ -3,10 +3,11 @@
 // Plan cards plus the full entitlement matrix. Both read src/config/plans.ts, so
 // the cards and the table can never disagree with each other or with the gates.
 
-import { Check, Minus } from "lucide-react";
+import { Check, Loader2, Minus } from "lucide-react";
 import {
     CAPABILITY_MATRIX,
     PLANS,
+    PLAN_ORDER,
     TRIAL_DAYS,
     TRIAL_PLAN,
     type PlanId,
@@ -15,12 +16,33 @@ import {
 interface Props {
     /** Signed in: the plan the account is actually on. */
     currentPlan?: PlanId | null;
-    /** Signed out: every button starts the same trial. */
+    /**
+     * Signed out this starts a trial; signed in it starts checkout. Either way
+     * the card only reports which plan was picked - what that means is the
+     * caller's business.
+     */
     onChoose: (planId: PlanId) => void;
     signedIn?: boolean;
+    /**
+     * The plan being sent to Stripe right now. Checkout is a full page
+     * navigation, so there is a visible gap between the click and the redirect;
+     * without this the card looks inert and invites a second click.
+     */
+    busyPlan?: PlanId | null;
 }
 
-export function PlanCards({ currentPlan, onChoose, signedIn = false }: Props) {
+/** Whether moving to `target` from `current` is a step up the price ladder. */
+function isUpgrade(current: PlanId | null | undefined, target: PlanId): boolean {
+    if (!current) return true;
+    return PLAN_ORDER.indexOf(target) > PLAN_ORDER.indexOf(current);
+}
+
+export function PlanCards({
+    currentPlan,
+    onChoose,
+    signedIn = false,
+    busyPlan = null,
+}: Props) {
     return (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             {PLANS.map((plan) => {
@@ -77,29 +99,36 @@ export function PlanCards({ currentPlan, onChoose, signedIn = false }: Props) {
                             ))}
                         </ul>
 
-                        {/* Signed in, there is nothing to click yet: switching
-                            plans needs the billing layer, which does not exist.
-                            A "Switch to Business" button that silently does
-                            nothing is worse than no button, so the card just
-                            states where the account stands. */}
-                        {signedIn ? (
-                            <p className="mt-5 border-t border-gray-100 pt-4 text-sm text-gray-500">
-                                {plan.id === currentPlan
-                                    ? "Included in your trial."
-                                    : `Available when billing opens.`}
+                        {signedIn && plan.id === currentPlan ? (
+                            <p className="mt-5 border-t border-gray-100 pt-4 text-center text-sm font-medium text-[#4A7C70]">
+                                Your current plan
                             </p>
                         ) : (
                             <button
                                 type="button"
                                 onClick={() => onChoose(plan.id)}
+                                disabled={busyPlan !== null}
                                 className={[
-                                    "mt-5 w-full rounded-full px-4 py-2.5 text-sm font-semibold transition",
+                                    "mt-5 flex w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition",
+                                    "disabled:cursor-not-allowed disabled:opacity-60",
                                     highlighted
                                         ? "bg-gradient-to-r from-[#D94C3D] to-[#E67E50] text-white hover:opacity-95"
                                         : "border border-gray-300 text-gray-700 hover:bg-gray-50",
                                 ].join(" ")}
                             >
-                                Start free trial
+                                {busyPlan === plan.id && (
+                                    <Loader2
+                                        aria-hidden="true"
+                                        className="h-3.5 w-3.5 animate-spin"
+                                    />
+                                )}
+                                {!signedIn
+                                    ? "Start free trial"
+                                    : busyPlan === plan.id
+                                      ? "Opening checkout..."
+                                      : isUpgrade(currentPlan, plan.id)
+                                        ? `Upgrade to ${plan.name}`
+                                        : `Switch to ${plan.name}`}
                             </button>
                         )}
                     </div>
