@@ -11,10 +11,15 @@
 // Vite, then fail only once deployed, with ERR_MODULE_NOT_FOUND. TypeScript maps
 // a `.js` specifier back to the `.ts` source, so writing it this way costs
 // nothing and is the only form that works in both places.
+//
+// This applies to `import type` too. Those erase at runtime, so it looks like
+// they should be exempt, but Vercel typechecks `api/` with node16 resolution and
+// rejects them (TS2835) - and our own tsconfig uses `bundler`, which does not,
+// so the error appears only in the deploy log.
 
 import Stripe from "stripe";
 import { isPlanId, type PlanId } from "../src/config/plans.js";
-import type { SubscriptionStatus } from "../src/models/account";
+import type { SubscriptionStatus } from "../src/models/account.js";
 
 /**
  * Pinned rather than left to the account default.
@@ -28,7 +33,7 @@ export const STRIPE_API_VERSION = "2026-07-29.dahlia" as const;
 
 /**
  * The lookup key for a plan's monthly price, as created by
- * `scripts/stripe-seed-products.sh`.
+ * `scripts/stripe-seed-products.mjs`.
  *
  * Resolving prices by lookup key rather than holding price IDs in env vars
  * means there is one less thing to keep in step across test mode, live mode and
@@ -69,7 +74,7 @@ export async function priceForPlan(planId: PlanId): Promise<Stripe.Price> {
     const price = prices.data[0];
     if (!price) {
         throw new Error(
-            `No active price with lookup key "${key}". Run scripts/stripe-seed-products.sh.`,
+            `No active price with lookup key "${key}". Run scripts/stripe-seed-products.mjs --apply.`,
         );
     }
     return price;
