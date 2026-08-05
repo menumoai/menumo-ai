@@ -1,8 +1,10 @@
-// Creates or updates the Menumo subscription products and their monthly prices
-// in Stripe, from `src/config/plans.ts`.
+// Creates or updates the Menumo subscription products and their monthly and
+// annual prices in Stripe, from `src/config/plans.ts`.
 //
-//   node scripts/stripe-seed-products.mjs            # dry run, shows the plan
-//   node scripts/stripe-seed-products.mjs --apply    # actually write to Stripe
+//   node scripts/stripe-seed-products.mjs                    # dry run
+//   node scripts/stripe-seed-products.mjs --apply            # write to Stripe
+//   node scripts/stripe-seed-products.mjs --apply --migrate-prices
+//                                       # also re-point changed amounts
 //
 // Replaces an earlier shell version that restated the names, prices and blurbs
 // in a second place. Node 24 strips TypeScript types on import, so this reads
@@ -15,16 +17,28 @@
 //
 // Safe to re-run. Products are updated in place; prices are immutable in Stripe,
 // so a changed amount is reported rather than silently re-pointed.
+//
+// --migrate-prices is the deliberate way through that report. It creates the new
+// price and transfers the lookup key onto it, so new checkouts get the new
+// amount while everyone already subscribed stays on the price they agreed to
+// until they change plan themselves. That is the honest behaviour, but it is
+// still a price change, so it never happens without being asked for.
 
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createInterface } from "node:readline/promises";
 import Stripe from "stripe";
-import { PLANS } from "../src/config/plans.ts";
+import {
+    BILLING_INTERVALS,
+    PLANS,
+    priceFor,
+    stripeLookupKey,
+} from "../src/config/plans.ts";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const APPLY = process.argv.includes("--apply");
+const MIGRATE = process.argv.includes("--migrate-prices");
 
 /** Reads .env.local so this behaves like the dev server without extra setup. */
 function envFromFile() {
@@ -52,7 +66,11 @@ const isLive = key.includes("_live_");
 const stripe = new Stripe(key, { apiVersion: "2026-07-29.dahlia" });
 
 const productId = (planId) => `menumo_${planId}`;
-const lookupKey = (planId) => `menumo_${planId}_monthly`;
+
+/** Stripe's own name for an interval. Ours reads better in a UI; this bills. */
+const recurring = (interval) => ({
+    interval: interval === "annual" ? "year" : "month",
+});
 
 /**
  * What a product should look like, derived entirely from plans.ts.
@@ -100,12 +118,88 @@ async function findProduct(id) {
     }
 }
 
+/** One plan at one interval. Returns false if it needs a human decision. */
+async function syncPrice(plan, interval) {
+    const id = productId(plan.id);
+    const key = stripeLookupKey(plan.id, interval);
+    const amount = priceFor(plan, interval);
+    const cents = Math.round(amount * 100);
+    const unit = interval === "annual" ? "yr" : "mo";
+
+    const found = await stripe.prices.list({
+        lookup_keys: [key],
+        active: true,
+        limit: 1,
+    });
+    const price = found.data[0];
+
+    if (!price) {
+        console.log(`  price ${key}: CREATE at $${amount}/${unit}`);
+        if (APPLY) {
+            await stripe.prices.create({
+                product: id,
+                currency: "usd",
+                unit_amount: cents,
+                recurring: recurring(interval),
+                lookup_key: key,
+                // `plan_id` is what the webhook reads to decide entitlements;
+                // `billing_interval` is only ever a label, because the app
+                // reads the cadence off `recurring.interval` instead.
+                metadata: { plan_id: plan.id, billing_interval: interval },
+            });
+        }
+        return true;
+    }
+
+    if (price.unit_amount === cents) {
+        console.log(`  price ${key}: up to date ($${amount}/${unit})`);
+        return true;
+    }
+
+    const was = (price.unit_amount / 100).toFixed(2);
+
+    if (!MIGRATE) {
+        // Stripe prices are immutable. Re-pointing the lookup key by default
+        // would change what new customers pay as a side effect of a re-run, so
+        // this stops and makes it a decision instead.
+        console.error(
+            `  price ${key}: MISMATCH - Stripe has $${was}, plans.ts says $${amount}.`,
+        );
+        console.error(
+            `    Prices cannot be edited. Re-run with --migrate-prices to mint ` +
+                `the new price and move the lookup key onto it; existing ` +
+                `subscribers stay on $${was} until they change plan.`,
+        );
+        return false;
+    }
+
+    console.log(
+        `  price ${key}: MIGRATE $${was} -> $${amount}/${unit} ` +
+            `(new price, lookup key transferred; ${price.id} left for existing subscribers)`,
+    );
+    if (APPLY) {
+        await stripe.prices.create({
+            product: id,
+            currency: "usd",
+            unit_amount: cents,
+            recurring: recurring(interval),
+            lookup_key: key,
+            // Moves the key off the old price rather than colliding with it.
+            // The old price stays active and keeps billing whoever is on it.
+            transfer_lookup_key: true,
+            metadata: { plan_id: plan.id, billing_interval: interval },
+        });
+    }
+    return true;
+}
+
 async function syncPlan(plan) {
     const id = productId(plan.id);
     const desired = desiredProduct(plan);
-    const cents = Math.round(plan.priceMonthly * 100);
 
-    console.log(`\n${plan.name}  ($${plan.priceMonthly}/mo)`);
+    console.log(
+        `\n${plan.name}  ($${plan.priceMonthly}/mo, $${plan.priceAnnual}/yr)`,
+    );
 
     const existing = await findProduct(id);
     if (!existing) {
@@ -120,44 +214,14 @@ async function syncPlan(plan) {
         console.log(`  product ${id}: up to date`);
     }
 
-    const key = lookupKey(plan.id);
-    const found = await stripe.prices.list({
-        lookup_keys: [key],
-        active: true,
-        limit: 1,
-    });
-    const price = found.data[0];
-
-    if (!price) {
-        console.log(`  price ${key}: CREATE at $${plan.priceMonthly}/mo`);
-        if (APPLY) {
-            await stripe.prices.create({
-                product: id,
-                currency: "usd",
-                unit_amount: cents,
-                recurring: { interval: "month" },
-                lookup_key: key,
-                metadata: { plan_id: plan.id },
-            });
-        }
-    } else if (price.unit_amount !== cents) {
-        // Stripe prices are immutable. Re-pointing the lookup key here would
-        // change what new customers pay while existing subscribers silently
-        // stayed on the old amount, so this stops and says so instead.
-        console.error(
-            `  price ${key}: MISMATCH - Stripe has ${price.unit_amount}, ` +
-                `plans.ts says ${cents}.`,
-        );
-        console.error(
-            `    Prices cannot be edited. Create a replacement and migrate ` +
-                `subscribers deliberately: https://docs.stripe.com/billing/subscriptions/upgrade-downgrade`,
-        );
-        return false;
-    } else {
-        console.log(`  price ${key}: up to date ($${plan.priceMonthly}/mo)`);
+    let ok = true;
+    for (const interval of BILLING_INTERVALS) {
+        // Sequential, not Promise.all: both prices hang off the product created
+        // just above, and interleaving them makes the log unreadable for no
+        // meaningful gain on six prices.
+        ok = (await syncPrice(plan, interval)) && ok;
     }
-
-    return true;
+    return ok;
 }
 
 /**
@@ -182,7 +246,8 @@ async function main() {
     console.log(
         `Account : ${await accountLabel()}\n` +
             `Mode    : ${isLive ? "LIVE" : "TEST"}\n` +
-            `Action  : ${APPLY ? "apply changes" : "dry run (pass --apply to write)"}`,
+            `Action  : ${APPLY ? "apply changes" : "dry run (pass --apply to write)"}\n` +
+            `Prices  : ${MIGRATE ? "migrate changed amounts" : "report changed amounts"}`,
     );
 
     if (isLive && APPLY) {

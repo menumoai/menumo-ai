@@ -18,7 +18,12 @@
 // so the error appears only in the deploy log.
 
 import Stripe from "stripe";
-import { isPlanId, type PlanId } from "../src/config/plans.js";
+import {
+    isPlanId,
+    stripeLookupKey,
+    type BillingInterval,
+    type PlanId,
+} from "../src/config/plans.js";
 import type { SubscriptionStatus } from "../src/models/account.js";
 
 /**
@@ -30,18 +35,6 @@ import type { SubscriptionStatus } from "../src/models/account.js";
  * with the installed SDK - `stripe@22.x` ships this version.
  */
 export const STRIPE_API_VERSION = "2026-07-29.dahlia" as const;
-
-/**
- * The lookup key for a plan's monthly price, as created by
- * `scripts/stripe-seed-products.mjs`.
- *
- * Resolving prices by lookup key rather than holding price IDs in env vars
- * means there is one less thing to keep in step across test mode, live mode and
- * the deploy config. The IDs differ per mode; the keys do not.
- */
-export function monthlyLookupKey(planId: PlanId): string {
-    return `menumo_${planId}_monthly`;
-}
 
 let cached: Stripe | null = null;
 
@@ -58,13 +51,18 @@ export function getStripe(): Stripe {
 }
 
 /**
- * Looks up the active monthly price for a plan.
+ * Looks up the active price for a plan at one billing interval.
  *
  * Throws when the price is missing, because the alternative - quietly falling
- * back to some other price - would bill someone the wrong amount.
+ * back to some other price - would bill someone the wrong amount. In particular
+ * it does not fall back to the monthly price when an annual one is missing:
+ * charging a year's customer one month's money is worse than an error.
  */
-export async function priceForPlan(planId: PlanId): Promise<Stripe.Price> {
-    const key = monthlyLookupKey(planId);
+export async function priceForPlan(
+    planId: PlanId,
+    interval: BillingInterval,
+): Promise<Stripe.Price> {
+    const key = stripeLookupKey(planId, interval);
     const prices = await getStripe().prices.list({
         lookup_keys: [key],
         active: true,
@@ -92,6 +90,31 @@ export async function priceForPlan(planId: PlanId): Promise<Stripe.Price> {
 export function planIdFromPrice(price: Stripe.Price | null | undefined): PlanId | null {
     const value = price?.metadata?.plan_id;
     return isPlanId(value) ? value : null;
+}
+
+/**
+ * How often a Stripe price bills, in the app's own terms.
+ *
+ * Read from `recurring.interval` rather than from our `billing_interval`
+ * metadata: Stripe's field is what the customer is actually charged on, whereas
+ * metadata is a label we wrote and could have written wrongly. A yearly price
+ * with a mislabelled tag should still show the owner "renews annually".
+ *
+ * Anything that is neither monthly nor yearly - a weekly price, or a one-off
+ * hand-created in the Dashboard - returns null rather than being forced into one
+ * of the two, so the UI can stay quiet instead of stating a cadence we guessed.
+ */
+export function intervalFromPrice(
+    price: Stripe.Price | null | undefined,
+): BillingInterval | null {
+    switch (price?.recurring?.interval) {
+        case "month":
+            return price.recurring.interval_count === 1 ? "monthly" : null;
+        case "year":
+            return price.recurring.interval_count === 1 ? "annual" : null;
+        default:
+            return null;
+    }
 }
 
 /**

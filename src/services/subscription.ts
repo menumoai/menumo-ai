@@ -8,7 +8,11 @@
 // browser's only job is to follow the URL it gets back.
 
 import { auth } from "../firebaseClient";
-import type { PlanId } from "../config/plans";
+import {
+    DEFAULT_BILLING_INTERVAL,
+    type BillingInterval,
+    type PlanId,
+} from "../config/plans";
 
 interface RedirectResponse {
     url: string;
@@ -62,19 +66,26 @@ async function authorizedPost(
 }
 
 /**
- * Sends the owner to Stripe-hosted Checkout for a plan.
+ * Sends the owner to Stripe-hosted Checkout for a plan, billed monthly or
+ * annually.
  *
  * A full page navigation rather than an embedded form, which is what keeps card
  * details entirely outside this app - there is no Stripe.js on the page and
  * nothing to get wrong about handling a PAN.
+ *
+ * Note that the interval is a request, not an instruction: the server resolves
+ * it to a real Stripe price by lookup key and refuses if that price is missing,
+ * so the amount charged can never be something the browser chose.
  */
 export async function startCheckout(
     accountId: string,
     planId: PlanId,
+    interval: BillingInterval = DEFAULT_BILLING_INTERVAL,
 ): Promise<void> {
     const { url } = await authorizedPost("/api/create-checkout-session", {
         accountId,
         planId,
+        interval,
     });
     window.location.href = url;
 }

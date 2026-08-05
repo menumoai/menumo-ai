@@ -1,6 +1,6 @@
 // src/models/account.ts
 import type { Timestamp } from "firebase/firestore";
-import type { PlanId } from "../config/plans";
+import type { BillingInterval, PlanId } from "../config/plans";
 
 export type SubscriptionTier = "mvp" | "growth" | "pro" | "custom";
 export type SubscriptionStatus = "trial" | "active" | "past_due" | "canceled";
@@ -20,6 +20,21 @@ export interface AccountSubscription {
     /** The plan Stripe is billing for, from the price's `plan_id` metadata. */
     planId: PlanId;
     status: SubscriptionStatus;
+
+    /**
+     * How often the subscription bills, read from the Stripe price's own
+     * `recurring.interval`.
+     *
+     * Null for a subscription on a price that is neither plain monthly nor plain
+     * yearly - only reachable by hand-creating one in the Dashboard. The UI
+     * treats null as "do not claim a cadence" rather than assuming monthly,
+     * because telling someone on a yearly plan that they renew next month is a
+     * worse failure than saying nothing.
+     *
+     * The interval never affects entitlements: an annual Pro and a monthly Pro
+     * are the same plan, so only `planId` is gated on.
+     */
+    interval?: BillingInterval | null;
 
     stripeCustomerId: string;
     stripeSubscriptionId: string;

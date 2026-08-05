@@ -9,7 +9,12 @@ import type { IncomingMessage } from "node:http";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import type Stripe from "stripe";
-import { getStripe, planIdFromPrice, toAccountStatus } from "./_stripe.js";
+import {
+    getStripe,
+    intervalFromPrice,
+    planIdFromPrice,
+    toAccountStatus,
+} from "./_stripe.js";
 import { adminDb } from "./_firebaseAdmin.js";
 
 /**
@@ -121,6 +126,7 @@ async function applySubscription(
             {
                 subscription: {
                     planId,
+                    interval: intervalFromPrice(item.price),
                     status,
                     stripeCustomerId: customerIdOf(subscription),
                     stripeSubscriptionId: subscription.id,
