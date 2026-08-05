@@ -3,7 +3,11 @@ import type { Connect, PluginOption } from 'vite'
 import react from '@vitejs/plugin-react'
 import { generateCompanionSuggestions } from './api/companion'
 import { extractReceipt, isSupportedMediaType } from './api/ocr'
-import { isPlanId } from './src/config/plans'
+import {
+  DEFAULT_BILLING_INTERVAL,
+  isBillingInterval,
+  isPlanId,
+} from './src/config/plans'
 import { HttpError } from './api/_firebaseAdmin'
 import { resolveBaseUrl } from './api/_http'
 import { createCheckoutSession } from './api/create-checkout-session'
@@ -184,9 +188,18 @@ async function handleCheckout(
     const body = (await readJsonBody(req)) ?? {}
     const accountId = typeof body.accountId === 'string' ? body.accountId : ''
     const planId: unknown = body.planId
+    const rawInterval: unknown = body.interval
 
     if (!isPlanId(planId)) {
       sendJson(res, 400, { error: 'Unknown plan.' })
+      return
+    }
+
+    // Mirrors api/create-checkout-session.ts exactly. The two handlers exist so
+    // dev and production behave the same; a laxer check here would mean an
+    // interval bug that only ever shows up after deploy.
+    if (rawInterval !== undefined && !isBillingInterval(rawInterval)) {
+      sendJson(res, 400, { error: 'Unknown billing interval.' })
       return
     }
 
@@ -194,6 +207,7 @@ async function handleCheckout(
       authorization: req.headers.authorization,
       accountId,
       planId,
+      interval: rawInterval ?? DEFAULT_BILLING_INTERVAL,
       baseUrl: resolveBaseUrl(req.headers.origin),
     })
     sendJson(res, 200, { url })

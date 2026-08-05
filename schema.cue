@@ -76,6 +76,12 @@ package servedup
         planId:               "essentials" | "pro" | "business"
         status:               "trial" | "active" | "past_due" | "canceled"
 
+        // How often the subscription bills, read from the Stripe price's own
+        // `recurring.interval`. Null for a price that is neither plain monthly
+        // nor plain yearly, which only a hand-created Dashboard price can be.
+        // Never affects entitlements: annual Pro and monthly Pro are one plan.
+        interval?:            "monthly" | "annual" | null
+
         stripeCustomerId:     string
         stripeSubscriptionId: string
         stripePriceId:        string

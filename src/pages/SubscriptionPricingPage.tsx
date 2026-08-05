@@ -13,7 +13,16 @@ import { useSearchParams } from "react-router-dom";
 import { AlertCircle, CheckCircle2, CreditCard, Loader2 } from "lucide-react";
 import { useAccount } from "../account/AccountContext";
 import { resolvePlan } from "../account/entitlements";
-import { getPlan, TRIAL_DAYS, type PlanId } from "../config/plans";
+import {
+    DEFAULT_BILLING_INTERVAL,
+    formatPrice,
+    getPlan,
+    isBillingInterval,
+    priceFor,
+    TRIAL_DAYS,
+    type BillingInterval,
+    type PlanId,
+} from "../config/plans";
 import {
     CapabilityMatrix,
     PlanCards,
@@ -30,6 +39,20 @@ function formatDate(value: { toDate: () => Date } | null | undefined): string {
     });
 }
 
+/**
+ * "Renews annually on 5 August 2027", or just the date when the cadence is
+ * unknown. Named rather than inlined so the "unknown interval" case cannot leave
+ * a stray double space in the sentence.
+ */
+function renewalLine(
+    interval: BillingInterval | null,
+    date: string,
+): string {
+    const cadence =
+        interval === "annual" ? "annually " : interval === "monthly" ? "monthly " : "";
+    return `Renews ${cadence}on ${date}.`;
+}
+
 export function SubscriptionPricingPage() {
     const { accountId, account, loading } = useAccount();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -37,9 +60,37 @@ export function SubscriptionPricingPage() {
     const [busyPlan, setBusyPlan] = useState<PlanId | null>(null);
     const [portalBusy, setPortalBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    // The interval on screen, in precedence order: whatever the owner last
+    // clicked, else an explicit `?interval=` carried over from /get-started,
+    // else what they are actually billed on, else monthly.
+    //
+    // Derived rather than held in state and synced, because the account arrives
+    // asynchronously: state seeded at mount would be seeded from an account that
+    // is not loaded yet, and an effect that corrected it afterwards would fight
+    // the owner's own clicks.
+    const requestedInterval = searchParams.get("interval");
+    const [chosenInterval, setChosenInterval] = useState<BillingInterval | null>(
+        null,
+    );
 
     const currentPlan = useMemo(() => resolvePlan(account), [account]);
     const subscription = account?.subscription ?? null;
+
+    // Only claimed once Stripe has actually said so, and only while the
+    // subscription is live. `resolvePlan` drops a canceled or past-due account
+    // back to Essentials, so carrying the dead subscription's interval through
+    // would price that Essentials row at "$500/yr" - a figure for a plan they
+    // are no longer on, at a cadence they are no longer billed at.
+    const subscriptionIsLive =
+        subscription?.status === "trial" || subscription?.status === "active";
+    const currentInterval =
+        subscriptionIsLive ? (subscription?.interval ?? null) : null;
+
+    const interval: BillingInterval =
+        chosenInterval ??
+        (isBillingInterval(requestedInterval) ? requestedInterval : null) ??
+        currentInterval ??
+        DEFAULT_BILLING_INTERVAL;
 
     const checkoutResult = searchParams.get("checkout");
 
@@ -61,7 +112,7 @@ export function SubscriptionPricingPage() {
         setError(null);
         setBusyPlan(planId);
         try {
-            await startCheckout(accountId, planId);
+            await startCheckout(accountId, planId, interval);
             // No success path to handle: startCheckout navigates away.
         } catch (caught) {
             setBusyPlan(null);
@@ -96,6 +147,11 @@ export function SubscriptionPricingPage() {
     }
 
     const plan = getPlan(currentPlan);
+
+    // What to price the current plan at. An account with no subscription is on
+    // the trial and has agreed to nothing, so it reads at the monthly rate -
+    // which is also the rate the toggle below opens on.
+    const billedInterval = currentInterval ?? DEFAULT_BILLING_INTERVAL;
 
     return (
         <div className="mx-auto max-w-6xl px-4 pb-16 sm:px-6 lg:px-8">
@@ -156,7 +212,8 @@ export function SubscriptionPricingPage() {
                         >
                             {plan.name}
                             <span className="ml-2 text-sm font-normal text-gray-500">
-                                ${plan.priceMonthly}/mo
+                                {formatPrice(priceFor(plan, billedInterval))}
+                                {billedInterval === "annual" ? "/yr" : "/mo"}
                             </span>
                         </p>
 
@@ -183,7 +240,10 @@ export function SubscriptionPricingPage() {
                                 </p>
                             ) : (
                                 <p className="mt-1.5 text-sm text-gray-500">
-                                    Renews {formatDate(subscription.currentPeriodEnd)}.
+                                    {renewalLine(
+                                        currentInterval,
+                                        formatDate(subscription.currentPeriodEnd),
+                                    )}
                                 </p>
                             ))}
 
@@ -231,8 +291,11 @@ export function SubscriptionPricingPage() {
                 <PlanCards
                     signedIn
                     currentPlan={currentPlan}
+                    currentInterval={currentInterval}
                     onChoose={handleChoose}
                     busyPlan={busyPlan}
+                    interval={interval}
+                    onIntervalChange={setChosenInterval}
                 />
             </div>
 
@@ -240,7 +303,7 @@ export function SubscriptionPricingPage() {
                 <h2 className="mb-3 text-sm font-semibold text-gray-900">
                     What each plan includes
                 </h2>
-                <CapabilityMatrix />
+                <CapabilityMatrix interval={interval} />
             </div>
         </div>
     );

@@ -11,7 +11,7 @@
 // The shell swap is handled in layout/AppShell.tsx: this route renders bare for
 // visitors and inside DashboardLayout once there is an account.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight, Check, Sparkles } from "lucide-react";
 
@@ -19,7 +19,15 @@ import { useAuth } from "../auth/AuthContext";
 import { useAccount } from "../account/AccountContext";
 import { markOnboardingComplete } from "../services/accounts";
 import { LIVE_FEATURES } from "../config/features";
-import { TRIAL_DAYS, TRIAL_PLAN, isPlanId, type PlanId } from "../config/plans";
+import {
+    DEFAULT_BILLING_INTERVAL,
+    TRIAL_DAYS,
+    TRIAL_PLAN,
+    isBillingInterval,
+    isPlanId,
+    type BillingInterval,
+    type PlanId,
+} from "../config/plans";
 import { resolvePlan } from "../account/entitlements";
 import {
     PREVIEW_STEPS,
@@ -55,6 +63,24 @@ export function GetStartedPage() {
         ? requestedPlan
         : TRIAL_PLAN;
 
+    // Same precedence as /billing: the owner's own click, then an interval
+    // restored from the URL after a round trip through signup, then what a
+    // signed-in account is already billed on, then monthly. Derived rather than
+    // synced, because the account loads after the first render.
+    const requestedInterval = params.get("interval");
+    const [chosenInterval, setChosenInterval] = useState<BillingInterval | null>(
+        null,
+    );
+    const accountInterval = signedIn
+        ? (account?.subscription?.interval ?? null)
+        : null;
+
+    const interval: BillingInterval =
+        chosenInterval ??
+        (isBillingInterval(requestedInterval) ? requestedInterval : null) ??
+        accountInterval ??
+        DEFAULT_BILLING_INTERVAL;
+
     // Write the terminal flag once. AccountContext is on a live onSnapshot, so
     // the sidebar and redirect rules react without a refresh.
     useEffect(() => {
@@ -76,9 +102,14 @@ export function GetStartedPage() {
     // Signed out this is a signup funnel; signed in the same click belongs on
     // /billing, which owns checkout. Sending both from here would duplicate the
     // Stripe call at a second site for no benefit.
+    // Carried through signup so the interval the visitor picked here is still
+    // selected when they land on /billing, rather than being quietly reset to
+    // monthly after they chose annual.
     const choosePlan = (planId: PlanId) => {
         navigate(
-            signedIn ? "/billing" : `/auth?plan=${planId}&from=get-started`,
+            signedIn
+                ? `/billing?interval=${interval}`
+                : `/auth?plan=${planId}&interval=${interval}&from=get-started`,
         );
     };
 
@@ -223,11 +254,14 @@ export function GetStartedPage() {
                            is one, so a paying owner sees what they actually pay
                            for instead of everyone seeing "Pro". */
                         currentPlan={signedIn ? resolvePlan(account) : null}
+                        currentInterval={accountInterval}
                         onChoose={choosePlan}
+                        interval={interval}
+                        onIntervalChange={setChosenInterval}
                     />
 
                     <div className="mt-4">
-                        <CapabilityMatrix />
+                        <CapabilityMatrix interval={interval} />
                     </div>
                 </div>
 

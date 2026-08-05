@@ -5,7 +5,14 @@
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import type { Timestamp } from "firebase-admin/firestore";
-import { TRIAL_DAYS, isPlanId, type PlanId } from "../src/config/plans.js";
+import {
+    DEFAULT_BILLING_INTERVAL,
+    TRIAL_DAYS,
+    isBillingInterval,
+    isPlanId,
+    type BillingInterval,
+    type PlanId,
+} from "../src/config/plans.js";
 import { getStripe, integrationIdentifier, priceForPlan } from "./_stripe.js";
 import { HttpError, adminDb, requireAccountAccess } from "./_firebaseAdmin.js";
 import { asBody, resolveBaseUrl } from "./_http.js";
@@ -15,6 +22,7 @@ export interface CheckoutSessionParams {
     authorization: string | undefined;
     accountId: string;
     planId: PlanId;
+    interval: BillingInterval;
     /** Absolute base URL Stripe returns the customer to. */
     baseUrl: string;
 }
@@ -68,7 +76,7 @@ async function ensureCustomer(
 export async function createCheckoutSession(
     params: CheckoutSessionParams,
 ): Promise<string> {
-    const { authorization, accountId, planId, baseUrl } = params;
+    const { authorization, accountId, planId, interval, baseUrl } = params;
 
     await requireAccountAccess(authorization, accountId);
 
@@ -78,7 +86,7 @@ export async function createCheckoutSession(
     }
     const account = snapshot.data();
 
-    const price = await priceForPlan(planId);
+    const price = await priceForPlan(planId, interval);
     const customerId = await ensureCustomer(accountId, account);
     const trialDays = remainingTrialDays(account?.createdAt);
 
@@ -99,7 +107,11 @@ export async function createCheckoutSession(
             metadata: { account_id: accountId },
             ...(trialDays >= 1 ? { trial_period_days: trialDays } : {}),
         },
-        metadata: { account_id: accountId, plan_id: planId },
+        metadata: {
+            account_id: accountId,
+            plan_id: planId,
+            billing_interval: interval,
+        },
         integration_identifier: integrationIdentifier(),
 
         // Both return to /billing, which reads these flags and reports what
@@ -125,17 +137,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const body = asBody(req.body);
     const accountId = typeof body.accountId === "string" ? body.accountId : "";
     const planId: unknown = body.planId;
+    const rawInterval: unknown = body.interval;
 
     if (!isPlanId(planId)) {
         res.status(400).json({ error: "Unknown plan." });
         return;
     }
 
+    // Absent means monthly, so a client that predates annual billing still
+    // works. Present but unrecognised is rejected rather than defaulted: an
+    // owner who asked for a year and got charged for a month would have no way
+    // to tell from this response that anything went wrong.
+    if (rawInterval !== undefined && !isBillingInterval(rawInterval)) {
+        res.status(400).json({ error: "Unknown billing interval." });
+        return;
+    }
+    const interval = rawInterval ?? DEFAULT_BILLING_INTERVAL;
+
     try {
         const url = await createCheckoutSession({
             authorization: req.headers.authorization,
             accountId,
             planId,
+            interval,
             baseUrl: resolveBaseUrl(req.headers.origin),
         });
         res.status(200).json({ url });

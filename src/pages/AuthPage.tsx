@@ -86,17 +86,26 @@ export function AuthPage() {
     // context across the signup form.
     const cameFromGetStarted = searchParams.get("from") === "get-started";
     const planParam = searchParams.get("plan");
+    const intervalParam = searchParams.get("interval");
     const signedUpRef = useRef(false);
 
     const postAuthPath = useCallback(
         (justSignedUp: boolean) => {
             if (!justSignedUp && !cameFromGetStarted) return "/dashboard";
-            const suffix = planParam
-                ? `?plan=${encodeURIComponent(planParam)}`
-                : "";
-            return `/get-started${suffix}`;
+
+            // Both halves of the choice made before signup are carried back, not
+            // just the plan. Someone who picked annual and then filled in a form
+            // should not have to find the toggle again on the other side.
+            const query = new URLSearchParams();
+            if (planParam) query.set("plan", planParam);
+            if (intervalParam) query.set("interval", intervalParam);
+            // `toString()` rather than `.size`, which Safari only got in 17.
+            // A payments funnel is the wrong place to drop someone's choice on
+            // an older browser.
+            const rendered = query.toString();
+            return rendered ? `/get-started?${rendered}` : "/get-started";
         },
-        [cameFromGetStarted, planParam],
+        [cameFromGetStarted, planParam, intervalParam],
     );
 
     useEffect(() => {
