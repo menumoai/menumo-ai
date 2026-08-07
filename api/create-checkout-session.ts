@@ -17,6 +17,37 @@ import { getStripe, integrationIdentifier, priceForPlan } from "./_stripe.js";
 import { HttpError, adminDb, requireAccountAccess } from "./_firebaseAdmin.js";
 import { asBody, resolveBaseUrl } from "./_http.js";
 
+/**
+ * Whether Stripe Tax calculates and collects on checkout.
+ *
+ * OFF, and deliberately so. Stripe only charges tax where Menumo holds an
+ * *active registration*, and the live account currently holds none. Critically,
+ * that state produces no error: Stripe calculates zero and returns a clean
+ * session, so `automatic_tax: { enabled: true }` looks like working tax
+ * collection while collecting nothing. An enabled flag that does nothing is
+ * worse than an honest `false`, because it is the version someone glances at
+ * and concludes tax is handled.
+ *
+ * WHAT HAS TO BE TRUE BEFORE FLIPPING THIS BACK
+ *   1. Head office set, so Tax settings report `active` rather than `pending`.
+ *   2. A default tax behavior on the account. Exclusive is the intent: the
+ *      listed price is the price and tax is added on top. Set it at the account
+ *      level rather than per price - a price's own `tax_behavior` can be set
+ *      only once and never changed, so leaving all four prices `unspecified`
+ *      keeps that move in reserve.
+ *   3. A preset product tax code. `txcd_10103001` (SaaS, business use) is the
+ *      expected fit. Not `txcd_10000000`, which is too broad for US state-level
+ *      taxability.
+ *   4. At least one registration recorded, for a jurisdiction Menumo is
+ *      *already* registered with. Recording one in Stripe does not register the
+ *      business with the authority; that happens first, and which jurisdictions
+ *      apply is a question for an accountant rather than for this file.
+ *
+ * Steps 1 to 3 are all Dashboard settings. Step 4 is the one that actually
+ * makes tax collect, and until it is done this flag would be decorative.
+ */
+const ENABLE_AUTOMATIC_TAX: boolean = false;
+
 export interface CheckoutSessionParams {
     /** Raw Authorization header. The caller is not trusted until this verifies. */
     authorization: string | undefined;
@@ -106,33 +137,21 @@ export async function createCheckoutSession(
         // whole reason to accept the extra field on the checkout page.
         allow_promotion_codes: true,
 
-        // Sales tax, VAT and GST, calculated by Stripe from the customer's
-        // address and OUR registrations.
-        //
-        // READ THIS BEFORE ASSUMING TAX IS BEING COLLECTED. Stripe only charges
-        // tax in jurisdictions where Menumo holds an *active registration* in
-        // the Dashboard. With no registration it does not error, it silently
-        // calculates zero - so this flag being `true` is necessary but nowhere
-        // near sufficient, and the flag alone is not evidence that anything is
-        // being collected. Registrations are added in the Dashboard, which is
-        // exactly the point: once this ships, opening a new state is a Dashboard
-        // action rather than a deploy.
-        //
-        // Each product also needs a tax code. None is set on our products, so
-        // they inherit the account's preset tax code from the Dashboard, which
-        // keeps that decision where the person who can answer it is working.
-        automatic_tax: { enabled: true },
+        // Sales tax, VAT and GST. See ENABLE_AUTOMATIC_TAX above for why this is
+        // currently off and what has to be true before it goes back on.
+        ...(ENABLE_AUTOMATIC_TAX ? { automatic_tax: { enabled: true } } : {}),
 
-        // Tax requires an address, and we always pass an existing `customer`, so
-        // without this Checkout would silently reuse whatever address that
-        // customer already had rather than the one just entered. `auto` saves
-        // what the customer types back onto them, which is also what stops the
-        // next renewal being taxed on a stale address.
+        // Kept on even with tax off. We always pass an existing `customer`, and
+        // without this Checkout leaves whatever address that customer already
+        // had rather than saving the one just entered. That matters most on the
+        // day tax is switched on: the addresses collected in the meantime are
+        // what it will calculate against, and back-filling them afterwards means
+        // asking every existing customer where they are.
         customer_update: { address: "auto" },
 
-        // Deliberately no `billing_address_collection: 'required'`: Checkout
-        // already collects the address automatic_tax needs, and forcing the
-        // field adds friction for no gain.
+        // Deliberately no `billing_address_collection: 'required'`. Checkout
+        // already asks for what it needs, and forcing the field adds friction
+        // for no gain.
 
         // A business buying software can enter its VAT or GST number here, which
         // is what allows reverse charge to apply on cross-border B2B sales.
