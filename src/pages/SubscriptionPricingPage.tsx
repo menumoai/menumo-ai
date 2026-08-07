@@ -27,6 +27,7 @@ import {
     CapabilityMatrix,
     PlanCards,
 } from "../components/onboarding/PlanCards";
+import { usePlanCatalog } from "../hooks/usePlanCatalog";
 import { openBillingPortal, startCheckout } from "../services/subscription";
 
 /** Reads as a date an owner would recognise, not an ISO string. */
@@ -55,6 +56,7 @@ function renewalLine(
 
 export function SubscriptionPricingPage() {
     const { accountId, account, loading } = useAccount();
+    const { plans, loading: pricesLoading } = usePlanCatalog();
     const [searchParams, setSearchParams] = useSearchParams();
 
     const [busyPlan, setBusyPlan] = useState<PlanId | null>(null);
@@ -153,6 +155,15 @@ export function SubscriptionPricingPage() {
     // which is also the rate the toggle below opens on.
     const billedInterval = currentInterval ?? DEFAULT_BILLING_INTERVAL;
 
+    // The live entry for the plan they are on, which can legitimately be absent:
+    // a plan withdrawn from sale in Stripe keeps its existing subscribers, so an
+    // owner can be paying for something no longer on the page. Their
+    // entitlements are unaffected - `resolvePlan` reads the subscription, not
+    // the catalog - so the only thing missing is the headline price, and
+    // printing a stale one would be worse than printing none.
+    const livePlan = plans.find((p) => p.id === currentPlan) ?? null;
+    const livePrice = livePlan ? priceFor(livePlan, billedInterval) : null;
+
     return (
         <div className="mx-auto max-w-6xl px-4 pb-16 sm:px-6 lg:px-8">
             <header className="py-8">
@@ -210,11 +221,13 @@ export function SubscriptionPricingPage() {
                             className="mt-1 text-xl font-semibold text-gray-900"
                             style={{ fontFamily: "Poppins, sans-serif" }}
                         >
-                            {plan.name}
-                            <span className="ml-2 text-sm font-normal text-gray-500">
-                                {formatPrice(priceFor(plan, billedInterval))}
-                                {billedInterval === "annual" ? "/yr" : "/mo"}
-                            </span>
+                            {livePlan?.name ?? plan.name}
+                            {!pricesLoading && livePrice !== null && (
+                                <span className="ml-2 text-sm font-normal text-gray-500">
+                                    {formatPrice(livePrice)}
+                                    {billedInterval === "annual" ? "/yr" : "/mo"}
+                                </span>
+                            )}
                         </p>
 
                         {!subscription && (
@@ -290,6 +303,8 @@ export function SubscriptionPricingPage() {
             <div className="mt-8">
                 <PlanCards
                     signedIn
+                    plans={plans}
+                    pricesLoading={pricesLoading}
                     currentPlan={currentPlan}
                     currentInterval={currentInterval}
                     onChoose={handleChoose}
@@ -303,7 +318,11 @@ export function SubscriptionPricingPage() {
                 <h2 className="mb-3 text-sm font-semibold text-gray-900">
                     What each plan includes
                 </h2>
-                <CapabilityMatrix interval={interval} />
+                <CapabilityMatrix
+                    plans={plans}
+                    interval={interval}
+                    pricesLoading={pricesLoading}
+                />
             </div>
         </div>
     );

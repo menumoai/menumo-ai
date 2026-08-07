@@ -1,9 +1,27 @@
 // src/config/plans.ts
 //
-// Single source of truth for the priced plans. The public /get-started page and
-// the in-app plan blocks both read from here, so marketing copy and entitlement
-// checks can never drift apart. When the entitlement layer lands it should gate
-// on `PlanId` and the capability rows below rather than on new constants.
+// Plan identity and entitlements. NOT the source of truth for what things cost.
+//
+// THE SPLIT, AND WHY
+//   Stripe owns what is on sale: the amounts, the plan names and blurbs, the
+//   feature bullets, and which plans appear at all. `api/plans.ts` reads that
+//   catalog live, so changing a price or withdrawing a plan is a Dashboard
+//   action rather than a deploy. That is the whole point - the amounts below
+//   used to be authoritative, which made every price change a code change.
+//
+//   This file owns what a plan MEANS: the `PlanId` union, the order of the
+//   ladder, the enforced limits, and the capability matrix. Those decide what a
+//   paying customer can actually do, and they are checked at compile time by
+//   `hasCapability`. Moving them into Dashboard metadata would turn a type error
+//   into a text field anyone can mistype, with no review and no rollback.
+//
+//   Rule of thumb: the Dashboard owns how money is collected, code owns what the
+//   customer gets.
+//
+//   The prices below survive as FALLBACK_CATALOG, rendered only when the live
+//   catalog cannot be reached. They can therefore go stale without breaking
+//   anything, but a stale fallback still shows a wrong price during an outage,
+//   so keep them roughly current.
 
 export type PlanId = "essentials" | "pro" | "business";
 
@@ -29,20 +47,55 @@ export const DEFAULT_BILLING_INTERVAL: BillingInterval = "monthly";
  */
 export const ANNUAL_MONTHS_FREE = 2;
 
+/**
+ * A plan's static definition.
+ *
+ * Mixed ownership, deliberately. `name`, `tagline`, `highlights` and the two
+ * prices are the *fallback* copy: Stripe holds the live versions and the seed
+ * script pushes these there, so these values are what renders when the catalog
+ * endpoint is unreachable. The limits below are code-owned and always
+ * authoritative, because app code enforces them.
+ */
 export interface Plan {
     id: PlanId;
     name: string;
+    /** Fallback amount. Stripe's active price is authoritative. */
     priceMonthly: number;
-    /** Billed once a year. Two months cheaper than twelve monthly charges. */
+    /** Fallback amount. Two months cheaper than twelve monthly charges. */
     priceAnnual: number;
     /** Who the plan is for, in one line. */
     tagline: string;
-    /** Analytics history window in days. `null` means unlimited. */
+    /** Analytics history window in days. `null` means unlimited. Code-owned. */
     historyDays: number | null;
+    /** Code-owned. */
     locations: number;
+    /** Code-owned. */
     aiCreditsPerWeek: number;
     /** Short bullets for the plan card, in display order. */
     highlights: string[];
+}
+
+/**
+ * A plan as it is on sale right now, which is what every price-rendering
+ * component takes.
+ *
+ * The prices are nullable because an interval can be withdrawn on its own:
+ * archiving just the annual price in Stripe leaves a monthly-only plan, and the
+ * UI has to render that rather than print `$undefined`. A plan with both prices
+ * archived does not appear in the catalog at all, which is how a plan is
+ * retired without a deploy.
+ *
+ * `Plan` is structurally assignable to this, so the fallback constants and the
+ * live catalog flow through the same helpers and the same components.
+ */
+export interface CatalogPlan {
+    id: PlanId;
+    name: string;
+    tagline: string;
+    highlights: readonly string[];
+    /** Dollars, or null when that interval is not on sale. */
+    priceMonthly: number | null;
+    priceAnnual: number | null;
 }
 
 export const PLANS: readonly Plan[] = [
@@ -107,6 +160,24 @@ export function getPlan(id: PlanId): Plan {
     return plan;
 }
 
+/**
+ * What the pricing pages render when the live catalog cannot be reached.
+ *
+ * Every plan is listed as on sale, which is the right way to be wrong here: an
+ * owner briefly seeing a plan that was withdrawn last week is a smaller failure
+ * than a Stripe blip emptying the pricing page. Checkout still resolves against
+ * Stripe, so a genuinely withdrawn plan fails at the point of purchase rather
+ * than being sold.
+ */
+export const FALLBACK_CATALOG: readonly CatalogPlan[] = PLANS.map((plan) => ({
+    id: plan.id,
+    name: plan.name,
+    tagline: plan.tagline,
+    highlights: plan.highlights,
+    priceMonthly: plan.priceMonthly,
+    priceAnnual: plan.priceAnnual,
+}));
+
 export function isPlanId(value: unknown): value is PlanId {
     return typeof value === "string" && PLAN_ORDER.includes(value as PlanId);
 }
@@ -118,9 +189,23 @@ export function isBillingInterval(value: unknown): value is BillingInterval {
     );
 }
 
-/** What the plan costs per charge, in dollars, at the chosen interval. */
-export function priceFor(plan: Plan, interval: BillingInterval): number {
+/**
+ * What the plan costs per charge, in dollars, at the chosen interval.
+ *
+ * Null means that interval is not on sale. Callers have to handle it rather
+ * than being handed a `0` or a `NaN` to render, because a pricing page printing
+ * "$0" for a withdrawn plan is worse than one that says nothing.
+ */
+export function priceFor(
+    plan: CatalogPlan,
+    interval: BillingInterval,
+): number | null {
     return interval === "annual" ? plan.priceAnnual : plan.priceMonthly;
+}
+
+/** Whether a plan can be bought at all, at either interval. */
+export function isOnSale(plan: CatalogPlan): boolean {
+    return plan.priceMonthly !== null || plan.priceAnnual !== null;
 }
 
 /**
@@ -129,13 +214,24 @@ export function priceFor(plan: Plan, interval: BillingInterval): number {
  * $790 a year is $65.83 a month, and rounding it to $66 would overstate the
  * price of the thing we are trying to sell.
  */
-export function monthlyEquivalent(plan: Plan): number {
+export function monthlyEquivalent(plan: CatalogPlan): number | null {
+    if (plan.priceAnnual === null) return null;
     return Math.round((plan.priceAnnual / 12) * 100) / 100;
 }
 
-/** Dollars saved in a year by paying annually rather than twelve times. */
-export function annualSavings(plan: Plan): number {
-    return plan.priceMonthly * 12 - plan.priceAnnual;
+/**
+ * Dollars saved in a year by paying annually rather than twelve times.
+ *
+ * Null when either price is missing, and also when the annual price is not
+ * actually cheaper. Stripe owns these amounts now, so "annual saves you money"
+ * is no longer structurally guaranteed the way it was when both numbers lived
+ * in this file - a saving of zero or less is a pricing mistake, and the honest
+ * response is to print no saving rather than "Save $0" or "Save -$40".
+ */
+export function annualSavings(plan: CatalogPlan): number | null {
+    if (plan.priceMonthly === null || plan.priceAnnual === null) return null;
+    const saving = plan.priceMonthly * 12 - plan.priceAnnual;
+    return saving > 0 ? saving : null;
 }
 
 /**
@@ -170,6 +266,41 @@ export function stripeLookupKey(
     interval: BillingInterval,
 ): string {
     return `menumo_${planId}_${interval === "annual" ? "annual" : "monthly"}`;
+}
+
+/** Every lookup key Menumo sells under, for a single batched price lookup. */
+export function allLookupKeys(): string[] {
+    return PLAN_ORDER.flatMap((planId) =>
+        BILLING_INTERVALS.map((interval) => stripeLookupKey(planId, interval)),
+    );
+}
+
+/**
+ * The inverse of `stripeLookupKey`, and the reason the webhook can trust a price
+ * nobody stamped metadata onto.
+ *
+ * A price is only reachable by a customer if checkout resolved it, and checkout
+ * resolves purely by lookup key - so on any price that can actually be bought,
+ * the key is guaranteed correct in a way `metadata.plan_id` is not. Someone
+ * creating a price in the Dashboard has to set the lookup key for it to sell at
+ * all, but nothing forces them to fill in the metadata, and before this existed
+ * that omission took the customer's money and never upgraded their account.
+ *
+ * Returns null for anything not matching the format, including a price
+ * belonging to some other product entirely.
+ */
+export function parseLookupKey(
+    key: string | null | undefined,
+): { planId: PlanId; interval: BillingInterval } | null {
+    if (!key) return null;
+
+    const match = /^menumo_(.+)_(monthly|annual)$/.exec(key);
+    if (!match) return null;
+
+    const [, planId, interval] = match;
+    if (!isPlanId(planId) || !isBillingInterval(interval)) return null;
+
+    return { planId, interval };
 }
 
 /** True when `held` includes everything `required` does. */

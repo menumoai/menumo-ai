@@ -12,6 +12,7 @@ import { HttpError } from './api/_firebaseAdmin'
 import { resolveBaseUrl } from './api/_http'
 import { createCheckoutSession } from './api/create-checkout-session'
 import { createPortalSession } from './api/create-portal-session'
+import { loadPlanCatalog } from './api/plans'
 import { processWebhook, readRawBody } from './api/stripe-webhook'
 
 // Dev-only shim: Vite's dev server does not run files under `api/`, so without
@@ -46,6 +47,44 @@ function ocrDevApi(apiKey: string): PluginOption {
         },
       )
     },
+  }
+}
+
+// Dev-only shim for the public plan catalog, mirroring `api/plans.ts`.
+//
+// Deliberately sends no Cache-Control. Production caches this hard at the edge,
+// but the point of the endpoint is that a Dashboard edit shows up without a
+// deploy, and the way anyone will check that is by changing a price and
+// reloading. A five-minute cache in dev would make the feature look broken.
+function plansDevApi(): PluginOption {
+  return {
+    name: 'plans-dev-api',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use(
+        '/api/plans',
+        (req: Connect.IncomingMessage, res) => {
+          void handlePlans(req, res)
+        },
+      )
+    },
+  }
+}
+
+async function handlePlans(
+  req: Connect.IncomingMessage,
+  res: Parameters<Connect.NextHandleFunction>[1],
+): Promise<void> {
+  if (req.method !== 'GET') {
+    sendJson(res, 405, { error: 'Method not allowed' })
+    return
+  }
+
+  try {
+    sendJson(res, 200, await loadPlanCatalog())
+  } catch (error) {
+    console.error('Plan catalog dev request failed', error)
+    sendJson(res, 502, { error: 'Could not load plans.' })
   }
 }
 
@@ -287,6 +326,9 @@ function readJsonBody(
 function applyServerEnv(env: Record<string, string>) {
   const serverKeys = [
     'STRIPE_SECRET_KEY',
+    // Optional read-only key for the public catalog endpoint. See
+    // getCatalogStripe in api/_stripe.ts.
+    'STRIPE_CATALOG_KEY',
     'STRIPE_WEBHOOK_SECRET',
     'FIREBASE_SERVICE_ACCOUNT',
     'FIREBASE_PROJECT_ID',
@@ -316,6 +358,7 @@ export default defineConfig(({ mode }) => {
       companionDevApi(env.ANTHROPIC_API_KEY ?? ''),
       ocrDevApi(env.ANTHROPIC_API_KEY ?? ''),
       subscriptionDevApi(),
+      plansDevApi(),
     ],
   }
 })
