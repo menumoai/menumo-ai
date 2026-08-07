@@ -151,7 +151,7 @@ async function applySubscription(
 
                 // Mirrored onto the legacy field so anything still reading it
                 // agrees with the block above. `subscriptionTier` is left alone
-                // on purpose: its enum cannot express essentials/business, and
+                // on purpose: its enum cannot express "business", and
                 // resolvePlan prefers subscription.planId anyway.
                 subscriptionStatus: status,
                 updatedAt: FieldValue.serverTimestamp(),

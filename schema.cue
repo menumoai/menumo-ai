@@ -73,7 +73,13 @@ package servedup
     subscription?: {
         // Matches PlanId in src/config/plans.ts, taken from the Stripe price's
         // `plan_id` metadata rather than from any client input.
-        planId:               "essentials" | "pro" | "business"
+        //
+        // "essentials" is retained as a legacy value: the tier was withdrawn
+        // from sale and removed from PlanId, but documents written while it was
+        // on sale still carry it and nothing back-fills them. Removing it here
+        // would make this schema reject account documents that genuinely exist.
+        // `resolvePlan` validates what it reads for the same reason.
+        planId:               "pro" | "business" | "essentials"
         status:               "trial" | "active" | "past_due" | "canceled"
 
         // How often the subscription bills, read from the Stripe price's own

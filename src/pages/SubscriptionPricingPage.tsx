@@ -80,9 +80,9 @@ export function SubscriptionPricingPage() {
 
     // Only claimed once Stripe has actually said so, and only while the
     // subscription is live. `resolvePlan` drops a canceled or past-due account
-    // back to Essentials, so carrying the dead subscription's interval through
-    // would price that Essentials row at "$500/yr" - a figure for a plan they
-    // are no longer on, at a cadence they are no longer billed at.
+    // to the floor plan, so carrying the dead subscription's interval through
+    // would price that row at an annual figure for a plan they are no longer
+    // on, at a cadence they are no longer billed at.
     const subscriptionIsLive =
         subscription?.status === "trial" || subscription?.status === "active";
     const currentInterval =
@@ -269,9 +269,10 @@ export function SubscriptionPricingPage() {
 
                         {subscription?.status === "canceled" && (
                             <p className="mt-1.5 text-sm text-gray-500">
-                                Your subscription has ended. Your data is safe and
-                                the essentials stay available - pick a plan below to
-                                restore the rest.
+                                Your subscription has ended. Your data is safe
+                                and your day-to-day tools stay available - pick a
+                                plan below to restore anything you were paying
+                                for on top.
                             </p>
                         )}
                     </div>

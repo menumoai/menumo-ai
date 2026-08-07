@@ -8,25 +8,46 @@
 //
 // THE TIER MISMATCH
 //   BusinessAccount.subscriptionTier is still "mvp" | "growth" | "pro" |
-//   "custom" - the pre-pricing names. PlanId is "essentials" | "pro" |
-//   "business". Rather than block gating on a rename plus a data migration,
-//   LEGACY_TIER_TO_PLAN bridges the two. When the rename happens, delete the map
-//   and read the field directly; nothing else here changes.
+//   "custom" - the pre-pricing names. PlanId is "pro" | "business". Rather than
+//   block gating on a rename plus a data migration, LEGACY_TIER_TO_PLAN bridges
+//   the two. When the rename happens, delete the map and read the field
+//   directly; nothing else here changes.
 //
 //   Stripe sidestepped the mismatch rather than resolving it. Paid accounts
 //   carry `subscription.planId`, which is already a PlanId, so resolvePlan reads
 //   that first and only falls through to the legacy map for accounts that have
 //   never been to checkout. The migration that finally deletes the map is
 //   therefore about back-filling those, not about changing this logic.
+//
+// THE WITHDRAWN TIER
+//   "essentials" used to be the entry plan and the floor everything fell back
+//   to. It was withdrawn from sale, so FLOOR_PLAN is now Pro.
+//
+//   That has a consequence worth being clear-eyed about: Pro is simultaneously
+//   the cheapest thing anyone can buy, the plan trials run at, and the plan a
+//   lapsed account drops to. Below Business there is now nothing to pay for, so
+//   when ENFORCE_PLAN_GATES is switched on it will gate Business features and
+//   nothing else.
 
 import {
     PLANS,
     TRIAL_PLAN,
+    isPlanId,
     planCovers,
     type PlanId,
 } from "../config/plans";
 import type { BusinessAccount, SubscriptionTier } from "../models/account";
 import { ENFORCE_PLAN_GATES } from "../config/access";
+
+/**
+ * What an account gets when it is not paying for anything: no subscription, a
+ * lapsed one, or a legacy tier with no better answer.
+ *
+ * Named rather than inlined because it appears in five places, and the whole
+ * point of it is that they agree. It moved from "essentials" to "pro" when
+ * Essentials was withdrawn - see the note at the top of this file.
+ */
+export const FLOOR_PLAN: PlanId = "pro";
 
 /**
  * Bridge from the legacy tier names to priced plans.
@@ -35,7 +56,7 @@ import { ENFORCE_PLAN_GATES } from "../config/access";
  * it must map to something sane rather than throwing.
  */
 const LEGACY_TIER_TO_PLAN: Record<SubscriptionTier, PlanId> = {
-    mvp: "essentials",
+    mvp: FLOOR_PLAN,
     growth: "pro",
     pro: "pro",
     custom: "business",
@@ -61,14 +82,23 @@ const LEGACY_TIER_TO_PLAN: Record<SubscriptionTier, PlanId> = {
  * books is not.
  */
 export function resolvePlan(account: BusinessAccount | null | undefined): PlanId {
-    if (!account) return "essentials";
+    if (!account) return FLOOR_PLAN;
 
     const stripe = account.subscription;
     if (stripe) {
         if (stripe.status === "canceled" || stripe.status === "past_due") {
-            return "essentials";
+            return FLOOR_PLAN;
         }
-        return stripe.planId;
+
+        // Validated rather than returned as-is, because the stored value is
+        // only as current as the day it was written. An account that
+        // subscribed to Essentials still has `planId: "essentials"` in
+        // Firestore, and TypeScript cannot catch that - the field is typed
+        // PlanId, but the document was written before the union shrank.
+        // Returning it unchecked would send an unknown id into `planCovers`,
+        // where `PLAN_ORDER.indexOf` yields -1 and quietly denies the account
+        // every gated capability it holds.
+        return isPlanId(stripe.planId) ? stripe.planId : FLOOR_PLAN;
     }
 
     if (account.subscriptionStatus === "trial") {
@@ -79,10 +109,10 @@ export function resolvePlan(account: BusinessAccount | null | undefined): PlanId
         account.subscriptionStatus === "canceled" ||
         account.subscriptionStatus === "past_due"
     ) {
-        return "essentials";
+        return FLOOR_PLAN;
     }
 
-    return LEGACY_TIER_TO_PLAN[account.subscriptionTier] ?? "essentials";
+    return LEGACY_TIER_TO_PLAN[account.subscriptionTier] ?? FLOOR_PLAN;
 }
 
 /**
