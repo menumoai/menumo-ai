@@ -165,7 +165,7 @@ export function intervalFromPrice(
  *
  * An unrecognised status maps to `canceled` on purpose. Stripe can add statuses,
  * and of the two ways to be wrong about a new one, degrading to the entry plan
- * is the recoverable direction; `resolvePlan` treats canceled as Essentials
+ * is the recoverable direction; `resolvePlan` treats canceled as the floor plan
  * rather than as a lockout, so the owner keeps their books either way.
  */
 export function toAccountStatus(

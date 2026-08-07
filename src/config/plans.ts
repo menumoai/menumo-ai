@@ -23,7 +23,16 @@
 //   anything, but a stale fallback still shows a wrong price during an outage,
 //   so keep them roughly current.
 
-export type PlanId = "essentials" | "pro" | "business";
+/**
+ * The plans that exist.
+ *
+ * "essentials" was removed when the tier was withdrawn from sale. Note that the
+ * value can still be *persisted*: any account that subscribed to it carries
+ * `subscription.planId === "essentials"` in Firestore, and no migration
+ * back-fills that. `resolvePlan` validates what it reads for exactly this
+ * reason rather than trusting the stored string to be a PlanId.
+ */
+export type PlanId = "pro" | "business";
 
 /** How often a subscription bills. Both are sold for every plan. */
 export type BillingInterval = "monthly" | "annual";
@@ -100,22 +109,6 @@ export interface CatalogPlan {
 
 export const PLANS: readonly Plan[] = [
     {
-        id: "essentials",
-        name: "Essentials",
-        priceMonthly: 50,
-        priceAnnual: 500,
-        tagline: "One truck, running the basics well.",
-        historyDays: 90,
-        locations: 1,
-        aiCreditsPerWeek: 10,
-        highlights: [
-            "Dashboard and food costing",
-            "Orders, expenses, inventory",
-            "90 days of history",
-            "10 AI questions a week",
-        ],
-    },
-    {
         id: "pro",
         name: "Pro",
         priceMonthly: 79,
@@ -125,7 +118,12 @@ export const PLANS: readonly Plan[] = [
         locations: 1,
         aiCreditsPerWeek: 30,
         highlights: [
-            "Everything in Essentials",
+            // Was "Everything in Essentials", which stopped meaning anything
+            // when Essentials was withdrawn. Pro is the entry plan now, so its
+            // card has to state what it contains rather than point at a tier
+            // nobody can see.
+            "Dashboard, food costing, orders and expenses",
+            "Inventory with batches and expiry",
             "Invoice photo intake",
             "Waste tracking and POS sync",
             "Unlimited history",
@@ -322,65 +320,65 @@ export interface CapabilityRow {
 export const CAPABILITY_MATRIX: readonly CapabilityRow[] = [
     {
         label: "Dashboard",
-        values: { essentials: true, pro: true, business: true },
+        values: { pro: true, business: true },
     },
     {
         label: "Food cost calculator",
-        values: { essentials: true, pro: true, business: true },
+        values: { pro: true, business: true },
     },
     {
         label: "Orders and expenses",
-        values: { essentials: true, pro: true, business: true },
+        values: { pro: true, business: true },
     },
     {
         label: "Inventory with batches and expiry",
-        values: { essentials: true, pro: true, business: true },
+        values: { pro: true, business: true },
     },
     {
         label: "Analytics history",
         hint: "How far back your reports can look",
-        values: { essentials: "90 days", pro: "Unlimited", business: "Unlimited" },
+        values: { pro: "Unlimited", business: "Unlimited" },
     },
     {
         label: "Invoice photo intake (OCR)",
         hint: "Reads a photo of a supplier invoice",
-        values: { essentials: false, pro: true, business: true },
+        values: { pro: true, business: true },
     },
     {
         label: "Waste and spoilage tracking",
-        values: { essentials: false, pro: true, business: true },
+        values: { pro: true, business: true },
     },
     {
         label: "POS integration",
         hint: "Not built yet",
-        values: { essentials: false, pro: true, business: true },
+        values: { pro: true, business: true },
     },
     {
         label: "Marketing and loyalty",
         hint: "Not built yet",
-        values: { essentials: false, pro: true, business: true },
+        values: { pro: true, business: true },
     },
     {
         label: "Locations",
         hint: "Separate trucks or regular pitches",
-        values: { essentials: "1", pro: "1", business: "Up to 10" },
+        values: { pro: "1", business: "Up to 10" },
     },
     {
         label: "Advanced P&L",
-        values: { essentials: false, pro: false, business: true },
+        values: { pro: false, business: true },
     },
     {
         label: "Menumo Pay processing",
         hint: "Not built yet",
-        values: { essentials: false, pro: false, business: true },
+        values: { pro: false, business: true },
     },
     {
         label: "API access",
         hint: "Not built yet",
-        values: { essentials: false, pro: false, business: true },
+        values: { pro: false, business: true },
     },
     {
         label: "AI questions per week",
-        values: { essentials: "10", pro: "30", business: "75" },
+        values: { pro: "30", business: "75" },
     },
 ];

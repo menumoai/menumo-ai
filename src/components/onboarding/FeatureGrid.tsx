@@ -6,7 +6,8 @@
 import { Link } from "react-router-dom";
 import { ArrowRight, Lock } from "lucide-react";
 import type { Feature } from "../../config/features";
-import { getPlan } from "../../config/plans";
+import { getPlan, planCovers } from "../../config/plans";
+import { FLOOR_PLAN } from "../../account/entitlements";
 import { featureIcon } from "./featureIcons";
 
 interface Props {
@@ -20,7 +21,14 @@ export function FeatureGrid({ features, linkToRoutes = false }: Props) {
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {features.map((feature) => {
                 const Icon = featureIcon(feature.icon);
-                const gated = feature.minPlan !== null && feature.minPlan !== "essentials";
+                // Gated means "costs more than everyone already has", so it is
+                // asked of the floor rather than named plan by plan. When
+                // Essentials was withdrawn the floor became Pro, and this
+                // stopped being a list of tier names that has to be edited in
+                // step with the catalog.
+                const gated =
+                    feature.minPlan !== null &&
+                    !planCovers(FLOOR_PLAN, feature.minPlan);
                 const opensHere = linkToRoutes && Boolean(feature.route);
 
                 const body = (
