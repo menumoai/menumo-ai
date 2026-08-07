@@ -49,10 +49,18 @@ export const TRIAL_PLAN: PlanId = "pro";
 export const DEFAULT_BILLING_INTERVAL: BillingInterval = "monthly";
 
 /**
- * The annual discount, expressed the way it is sold: pay for ten months, get
- * twelve. Every `priceAnnual` below is exactly `priceMonthly * 10`, and
- * `annualSavings` re-derives the headline number rather than restating it, so
- * the "2 months free" promise cannot drift away from the amounts charged.
+ * The annual discount as it is sold: roughly pay for ten months, get twelve.
+ *
+ * This used to be exact - every `priceAnnual` was literally `priceMonthly * 10`
+ * - and that stopped being true once Stripe took ownership of the amounts. Live
+ * currently runs Pro at $80/mo against $790/yr, which is a shade over two months
+ * free rather than exactly two.
+ *
+ * Nothing renders this number as money, which is what keeps it safe: it is only
+ * the badge copy on the interval toggle. Every figure an owner is actually
+ * quoted comes from `annualSavings`, which subtracts the real amounts, so the
+ * saving shown is always the saving charged even when this constant is a
+ * rounded description of it.
  */
 export const ANNUAL_MONTHS_FREE = 2;
 
@@ -111,7 +119,9 @@ export const PLANS: readonly Plan[] = [
     {
         id: "pro",
         name: "Pro",
-        priceMonthly: 79,
+        // Matched to live Stripe (2026-08-07). These are the offline fallback
+        // only; `api/plans.ts` is what an owner is actually quoted.
+        priceMonthly: 80,
         priceAnnual: 790,
         tagline: "The full toolkit, including invoice photo intake.",
         historyDays: null,
@@ -133,7 +143,8 @@ export const PLANS: readonly Plan[] = [
     {
         id: "business",
         name: "Business",
-        priceMonthly: 149,
+        // Matched to live Stripe (2026-08-07). See the note on Pro above.
+        priceMonthly: 150,
         priceAnnual: 1490,
         tagline: "Several trucks, or a truck plus a kitchen.",
         historyDays: null,
