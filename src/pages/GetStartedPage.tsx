@@ -34,6 +34,7 @@ import {
     useOnboardingProgress,
 } from "../hooks/useOnboardingProgress";
 import { greetingFirstName, useAccountUser } from "../hooks/useAccountUser";
+import { usePlanCatalog } from "../hooks/usePlanCatalog";
 import { BetaStrip } from "../components/onboarding/BetaStrip";
 import { SetupChecklist } from "../components/onboarding/SetupChecklist";
 import { FeatureGrid } from "../components/onboarding/FeatureGrid";
@@ -47,6 +48,7 @@ import {
 export function GetStartedPage() {
     const { user } = useAuth();
     const { account, accountId } = useAccount();
+    const { plans, loading: pricesLoading } = usePlanCatalog();
     const navigate = useNavigate();
     const [params] = useSearchParams();
 
@@ -247,6 +249,8 @@ export function GetStartedPage() {
                     />
                     <PlanCards
                         signedIn={signedIn}
+                        plans={plans}
+                        pricesLoading={pricesLoading}
                         /* Read off the account rather than assumed. This used to
                            hardcode TRIAL_PLAN because subscriptionTier's legacy
                            enum did not map to a PlanId; resolvePlan now handles
@@ -261,7 +265,11 @@ export function GetStartedPage() {
                     />
 
                     <div className="mt-4">
-                        <CapabilityMatrix interval={interval} />
+                        <CapabilityMatrix
+                            plans={plans}
+                            interval={interval}
+                            pricesLoading={pricesLoading}
+                        />
                     </div>
                 </div>
 

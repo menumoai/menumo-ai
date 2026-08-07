@@ -100,6 +100,45 @@ export async function createCheckoutSession(
         // payment methods, so which methods appear is controlled from the
         // Stripe Dashboard rather than hardcoded here. Pinning it to ['card']
         // would silently exclude everything else.
+
+        // Discounting moves to the Dashboard entirely. Marketing can create a
+        // promotion code and run a campaign without a deploy, which is the
+        // whole reason to accept the extra field on the checkout page.
+        allow_promotion_codes: true,
+
+        // Sales tax, VAT and GST, calculated by Stripe from the customer's
+        // address and OUR registrations.
+        //
+        // READ THIS BEFORE ASSUMING TAX IS BEING COLLECTED. Stripe only charges
+        // tax in jurisdictions where Menumo holds an *active registration* in
+        // the Dashboard. With no registration it does not error, it silently
+        // calculates zero - so this flag being `true` is necessary but nowhere
+        // near sufficient, and the flag alone is not evidence that anything is
+        // being collected. Registrations are added in the Dashboard, which is
+        // exactly the point: once this ships, opening a new state is a Dashboard
+        // action rather than a deploy.
+        //
+        // Each product also needs a tax code. None is set on our products, so
+        // they inherit the account's preset tax code from the Dashboard, which
+        // keeps that decision where the person who can answer it is working.
+        automatic_tax: { enabled: true },
+
+        // Tax requires an address, and we always pass an existing `customer`, so
+        // without this Checkout would silently reuse whatever address that
+        // customer already had rather than the one just entered. `auto` saves
+        // what the customer types back onto them, which is also what stops the
+        // next renewal being taxed on a stale address.
+        customer_update: { address: "auto" },
+
+        // Deliberately no `billing_address_collection: 'required'`: Checkout
+        // already collects the address automatic_tax needs, and forcing the
+        // field adds friction for no gain.
+
+        // A business buying software can enter its VAT or GST number here, which
+        // is what allows reverse charge to apply on cross-border B2B sales.
+        // Without it Stripe has to treat every sale as B2C and charge tax.
+        tax_id_collection: { enabled: true },
+
         subscription_data: {
             // Stamped on the subscription itself, not just this session, so
             // every later customer.subscription.* event names its account

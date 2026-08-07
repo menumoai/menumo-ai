@@ -1,15 +1,28 @@
-// Creates or updates the Menumo subscription products and their monthly and
-// annual prices in Stripe, from `src/config/plans.ts`.
+// Bootstraps the Menumo subscription products and their monthly and annual
+// prices in Stripe, from the fallback definitions in `src/config/plans.ts`.
 //
 //   node scripts/stripe-seed-products.mjs                    # dry run
 //   node scripts/stripe-seed-products.mjs --apply            # write to Stripe
 //   node scripts/stripe-seed-products.mjs --apply --migrate-prices
 //                                       # also re-point changed amounts
 //
-// Replaces an earlier shell version that restated the names, prices and blurbs
-// in a second place. Node 24 strips TypeScript types on import, so this reads
-// plans.ts directly and there is nothing left to keep in step by hand: change a
-// price or a highlight there, re-run this, and Stripe follows.
+// WHICH DIRECTION THIS RUNS, AND WHEN
+//   Stripe is the source of truth for what things cost. `api/plans.ts` reads the
+//   live catalog and the pricing pages render it, so the normal way to change a
+//   price, rename a plan, rewrite its bullets or withdraw it is the Dashboard,
+//   with no deploy and without running this.
+//
+//   This script exists for the case the Dashboard cannot serve: standing an
+//   account up from nothing. A fresh sandbox, a new test-mode key, or live mode
+//   on day one has no products at all, and clicking six prices into a form by
+//   hand is where lookup keys get mistyped. So it pushes plans.ts *up* to Stripe
+//   once, and after that Stripe leads.
+//
+//   The corollary is that a diff reported here is not automatically something to
+//   apply. On an established account it usually means the Dashboard has moved
+//   ahead of the constants, which is allowed and expected - the constants are
+//   only the offline fallback now. Applying would quietly revert a real price
+//   change, so read the dry run before reaching for --apply.
 //
 // Test or live mode is decided by STRIPE_SECRET_KEY, not by a flag, because the
 // key already determines which account is touched - a flag that disagreed with

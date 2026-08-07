@@ -1,7 +1,12 @@
 // src/components/onboarding/PlanCards.tsx
 //
-// Plan cards plus the full entitlement matrix. Both read src/config/plans.ts, so
-// the cards and the table can never disagree with each other or with the gates.
+// Plan cards plus the full entitlement matrix.
+//
+// Both take the catalog from their caller rather than importing PLANS, so the
+// cards and the table always show the same plans at the same prices - including
+// when Stripe says a plan has been withdrawn. The capability rows still come
+// from code, because those describe what a plan entitles you to rather than
+// what it costs.
 
 import { Check, Loader2, Minus } from "lucide-react";
 import {
@@ -17,11 +22,19 @@ import {
     monthlyEquivalent,
     priceFor,
     type BillingInterval,
-    type Plan,
+    type CatalogPlan,
     type PlanId,
 } from "../../config/plans";
 
 interface Props {
+    /** The plans on sale, in ladder order. From `usePlanCatalog`. */
+    plans: readonly CatalogPlan[];
+    /**
+     * True while the live prices are still in flight. The cards render their
+     * full shape from fallback copy meanwhile, but hold the price back rather
+     * than printing a number they may be about to revise.
+     */
+    pricesLoading?: boolean;
     /** Signed in: the plan the account is actually on. */
     currentPlan?: PlanId | null;
     /**
@@ -125,20 +138,63 @@ function IntervalToggle({
 /**
  * The headline price, and - annually - what it works out to per month.
  *
- * The second line is always rendered, empty when monthly, so switching interval
- * does not change the height of the block and shunt every card's button down.
+ * Both lines always occupy their height, whatever state they are in, so
+ * switching interval or having prices arrive never shunts every card's button
+ * down the page.
  */
-function PriceBlock({ plan, interval }: { plan: Plan; interval: BillingInterval }) {
+function PriceBlock({
+    plan,
+    interval,
+    loading,
+}: {
+    plan: CatalogPlan;
+    interval: BillingInterval;
+    loading: boolean;
+}) {
     const annual = interval === "annual";
+    const price = priceFor(plan, interval);
+    const equivalent = monthlyEquivalent(plan);
+    const saving = annualSavings(plan);
+
+    if (loading) {
+        return (
+            <>
+                <p className="mt-1.5 flex min-h-[40px] items-center">
+                    <span
+                        aria-hidden="true"
+                        className="inline-block h-8 w-28 animate-pulse rounded bg-gray-200"
+                    />
+                    <span className="sr-only">Loading price</span>
+                </p>
+                <p className="mt-1 min-h-[20px]" />
+            </>
+        );
+    }
+
+    // This interval is not on sale. The other one may still be, so the card
+    // says which rather than disappearing - a plan silently missing from the
+    // grid reads as a bug to anyone who knows it exists.
+    if (price === null) {
+        return (
+            <>
+                <p className="mt-1.5 flex min-h-[40px] items-center text-sm font-medium text-gray-500">
+                    Not sold {annual ? "annually" : "monthly"}
+                </p>
+                <p className="mt-1 min-h-[20px] text-xs text-gray-500">
+                    {annual ? "Available monthly." : "Available annually."}
+                </p>
+            </>
+        );
+    }
 
     return (
         <>
-            <p className="mt-1.5">
+            <p className="mt-1.5 flex min-h-[40px] items-baseline">
                 <span
                     className="text-3xl font-semibold tracking-tight text-gray-900"
                     style={{ fontFamily: "Poppins, sans-serif" }}
                 >
-                    {formatPrice(priceFor(plan, interval))}
+                    {formatPrice(price)}
                 </span>
                 <span className="text-sm text-gray-500">
                     {annual ? "/yr" : "/mo"}
@@ -146,12 +202,14 @@ function PriceBlock({ plan, interval }: { plan: Plan; interval: BillingInterval 
             </p>
 
             <p className="mt-1 min-h-[20px] text-xs text-gray-500">
-                {annual && (
+                {annual && equivalent !== null && (
                     <>
-                        {formatPrice(monthlyEquivalent(plan))}/mo equivalent
-                        <span className="ml-1.5 font-semibold text-[#4A7C70]">
-                            Save {formatPrice(annualSavings(plan))}
-                        </span>
+                        {formatPrice(equivalent)}/mo equivalent
+                        {saving !== null && (
+                            <span className="ml-1.5 font-semibold text-[#4A7C70]">
+                                Save {formatPrice(saving)}
+                            </span>
+                        )}
                     </>
                 )}
             </p>
@@ -159,7 +217,19 @@ function PriceBlock({ plan, interval }: { plan: Plan; interval: BillingInterval 
     );
 }
 
+/**
+ * Column count, so a withdrawn plan leaves two full-width cards rather than two
+ * cards and a gap where the third used to be.
+ */
+function gridColumns(count: number): string {
+    if (count <= 1) return "md:grid-cols-1";
+    if (count === 2) return "md:grid-cols-2";
+    return "md:grid-cols-3";
+}
+
 export function PlanCards({
+    plans,
+    pricesLoading = false,
     currentPlan,
     currentInterval = null,
     onChoose,
@@ -172,8 +242,8 @@ export function PlanCards({
         <>
             <IntervalToggle interval={interval} onChange={onIntervalChange} />
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                {PLANS.map((plan) => {
+            <div className={`grid grid-cols-1 gap-4 ${gridColumns(plans.length)}`}>
+                {plans.map((plan) => {
                     const highlighted = signedIn
                         ? plan.id === currentPlan
                         : plan.id === TRIAL_PLAN;
@@ -187,6 +257,12 @@ export function PlanCards({
                     const samePlan = signedIn && plan.id === currentPlan;
                     const sameInterval =
                         currentInterval == null || currentInterval === interval;
+
+                    // Checkout resolves the price by lookup key and throws when
+                    // there is no active one, so offering a button here for an
+                    // interval Stripe does not sell would send the owner to an
+                    // error rather than to a payment page.
+                    const available = priceFor(plan, interval) !== null;
 
                     return (
                         <div
@@ -211,7 +287,11 @@ export function PlanCards({
                                 {plan.name}
                             </h3>
 
-                            <PriceBlock plan={plan} interval={interval} />
+                            <PriceBlock
+                                plan={plan}
+                                interval={interval}
+                                loading={pricesLoading}
+                            />
 
                             <p className="mt-1 min-h-[40px] text-sm text-gray-500">
                                 {plan.tagline}
@@ -237,7 +317,11 @@ export function PlanCards({
                                 <button
                                     type="button"
                                     onClick={() => onChoose(plan.id)}
-                                    disabled={busyPlan !== null}
+                                    disabled={
+                                        busyPlan !== null ||
+                                        pricesLoading ||
+                                        !available
+                                    }
                                     className={[
                                         "mt-5 flex w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition",
                                         "disabled:cursor-not-allowed disabled:opacity-60",
@@ -252,19 +336,25 @@ export function PlanCards({
                                             className="h-3.5 w-3.5 animate-spin"
                                         />
                                     )}
-                                    {!signedIn
-                                        ? "Start free trial"
-                                        : busyPlan === plan.id
-                                          ? "Opening checkout..."
-                                          : samePlan
-                                            ? `Switch to ${
-                                                  interval === "annual"
-                                                      ? "annual"
-                                                      : "monthly"
-                                              } billing`
-                                            : isUpgrade(currentPlan, plan.id)
-                                              ? `Upgrade to ${plan.name}`
-                                              : `Switch to ${plan.name}`}
+                                    {!available
+                                        ? `Not sold ${
+                                              interval === "annual"
+                                                  ? "annually"
+                                                  : "monthly"
+                                          }`
+                                        : !signedIn
+                                          ? "Start free trial"
+                                          : busyPlan === plan.id
+                                            ? "Opening checkout..."
+                                            : samePlan
+                                              ? `Switch to ${
+                                                    interval === "annual"
+                                                        ? "annual"
+                                                        : "monthly"
+                                                } billing`
+                                              : isUpgrade(currentPlan, plan.id)
+                                                ? `Upgrade to ${plan.name}`
+                                                : `Switch to ${plan.name}`}
                                 </button>
                             )}
                         </div>
@@ -276,12 +366,17 @@ export function PlanCards({
 }
 
 export function CapabilityMatrix({
+    plans,
     interval = DEFAULT_BILLING_INTERVAL,
+    pricesLoading = false,
 }: {
+    /** The plans to column the table by. A withdrawn plan gets no column. */
+    plans: readonly CatalogPlan[];
     /** Which price to print in the header. The rows themselves never differ:
      *  paying yearly buys the same plan, not a different one. */
     interval?: BillingInterval;
-} = {}) {
+    pricesLoading?: boolean;
+}) {
     return (
         <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
             <table className="w-full min-w-[560px] border-collapse text-sm">
@@ -296,19 +391,24 @@ export function CapabilityMatrix({
                         >
                             Capability
                         </th>
-                        {PLANS.map((p) => (
-                            <th
-                                key={p.id}
-                                scope="col"
-                                className="border-b border-gray-200 px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-gray-500"
-                            >
-                                {p.name}
-                                <span className="ml-1 font-mono normal-case tabular-nums text-gray-400">
-                                    {formatPrice(priceFor(p, interval))}
-                                    {interval === "annual" ? "/yr" : "/mo"}
-                                </span>
-                            </th>
-                        ))}
+                        {plans.map((p) => {
+                            const price = priceFor(p, interval);
+                            return (
+                                <th
+                                    key={p.id}
+                                    scope="col"
+                                    className="border-b border-gray-200 px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-gray-500"
+                                >
+                                    {p.name}
+                                    {!pricesLoading && price !== null && (
+                                        <span className="ml-1 font-mono normal-case tabular-nums text-gray-400">
+                                            {formatPrice(price)}
+                                            {interval === "annual" ? "/yr" : "/mo"}
+                                        </span>
+                                    )}
+                                </th>
+                            );
+                        })}
                     </tr>
                 </thead>
                 <tbody>
@@ -325,7 +425,7 @@ export function CapabilityMatrix({
                                     </span>
                                 )}
                             </th>
-                            {PLANS.map((p) => {
+                            {plans.map((p) => {
                                 const v = row.values[p.id];
                                 return (
                                     <td

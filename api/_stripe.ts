@@ -20,6 +20,7 @@
 import Stripe from "stripe";
 import {
     isPlanId,
+    parseLookupKey,
     stripeLookupKey,
     type BillingInterval,
     type PlanId,
@@ -48,6 +49,31 @@ export function getStripe(): Stripe {
         cached = new Stripe(key, { apiVersion: STRIPE_API_VERSION });
     }
     return cached;
+}
+
+let cachedCatalog: Stripe | null = null;
+
+/**
+ * Client for the public catalog endpoint.
+ *
+ * `api/plans.ts` is the one endpoint anyone on the internet can call without
+ * signing in, and all it ever needs is to read products and prices. Backing it
+ * with the same full-access secret key as checkout and the webhook gives a
+ * public surface far more authority than it uses.
+ *
+ * Set STRIPE_CATALOG_KEY to a restricted key (`rk_`) with read-only access to
+ * Products and Prices and this uses it. Left unset it falls back to the usual
+ * key, so this is an available improvement rather than another required env var
+ * to get wrong on first deploy.
+ */
+export function getCatalogStripe(): Stripe {
+    const key = process.env.STRIPE_CATALOG_KEY;
+    if (!key) return getStripe();
+
+    if (!cachedCatalog) {
+        cachedCatalog = new Stripe(key, { apiVersion: STRIPE_API_VERSION });
+    }
+    return cachedCatalog;
 }
 
 /**
@@ -79,17 +105,31 @@ export async function priceForPlan(
 }
 
 /**
- * The plan a Stripe price belongs to, read from the `plan_id` metadata that the
- * seed script stamps on every product and price.
+ * The plan a Stripe price belongs to.
  *
  * Deliberately not a price-ID lookup table: test and live mode have different
- * price IDs, and a table would have to track both. Returns null when the
- * metadata is absent or unrecognised, which is a real possibility for a price
- * hand-created in the Dashboard.
+ * price IDs, and a table would have to track both.
+ *
+ * Two sources, in order. `metadata.plan_id` is what the seed script stamps and
+ * is checked first. The lookup key is the fallback, and it is the one that makes
+ * Dashboard-created prices safe: a price is only reachable by a customer if
+ * checkout resolved it, and `priceForPlan` resolves purely by lookup key, so on
+ * any price that can actually be bought the key is present and correct. The
+ * metadata is not - nothing in the Dashboard's price form requires it.
+ *
+ * Before the fallback existed, that omission was a silent billing failure of the
+ * worst kind: checkout succeeded, the card was charged, and `applySubscription`
+ * dropped the event on the floor, so the customer paid and was never upgraded.
+ * The only signal was a server log.
+ *
+ * Still returns null for a price belonging to something else entirely, which is
+ * the case the caller must keep handling.
  */
 export function planIdFromPrice(price: Stripe.Price | null | undefined): PlanId | null {
-    const value = price?.metadata?.plan_id;
-    return isPlanId(value) ? value : null;
+    const fromMetadata = price?.metadata?.plan_id;
+    if (isPlanId(fromMetadata)) return fromMetadata;
+
+    return parseLookupKey(price?.lookup_key)?.planId ?? null;
 }
 
 /**
